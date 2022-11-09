@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package filetransfer;
+
+// export PATH="$PATH:$(go env GOPATH)/bin"
+// protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative proto/filetransfer/filetransfer.proto
+option go_package = "cs425mp3/proto/filetransfer";
+
+service FileService {
+    rpc Upload(stream UploadRequest) returns (UploadResponse) {}
+    rpc Download(DownloadRequest) returns (stream DownloadResponse){}
+    rpc Delete(DeleteRequest) returns (DeleteResponse){}
+    rpc MasterRequest(MasterNodeRequest) returns (MasterNodeResponse){}
+    rpc MasterElectBroadcast(MasterElectRequest) returns (MasterElectResponse){}
+    rpc MasterAskToReplicate(MasterReplicateRequest) returns (MasterReplicateResponse){}
+}
+
+message UploadRequest {
+    bytes chunk = 1;
+    string filename = 2;
+}
+
+message UploadResponse {
+    string status = 1;
+}
+
+message DownloadRequest {
+    string filename = 1;
+}
+
+message DownloadResponse {
+    bytes chunk = 1;
+}
+
+message DeleteRequest {
+    string filename = 1;
+}
+
+message DeleteResponse {
+    string filename = 1;
+}
+
+message MasterNodeRequest {
+    int32 action = 1;
+    string localfilename = 2;
+    string sdfsfilename = 3;
+    string node_id = 4;
+}
+
+message MasterNodeResponse {  
+    string num_version = 1;
+    bytes replicas = 2;
+}
+
+message MasterElectRequest {
+    string master_id = 1;
+}
+
+message MasterElectResponse {
+    string message = 1;
+    string process_id = 2;
+    bytes details = 3;
+}
+
+message MasterReplicateRequest {
+    string replica_addr = 1;
+    string sdfsfilename = 2;
+    string version = 3;
+}
+
+message MasterReplicateResponse {
+    string response = 1;
+}
