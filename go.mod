@@ -1,4 +1,4 @@
-module cs425mp3
+module cs425mp4
 
 go 1.18
 

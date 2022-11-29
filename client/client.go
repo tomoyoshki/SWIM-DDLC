@@ -6,11 +6,16 @@ import (
 	"log"
 	"strings"
 
-	"cs425mp3/fileclient"
-	"cs425mp3/storage"
+	"cs425mp4/grpcclient/fileclient"
+	"cs425mp4/grpcclient/pythonclient"
+	"cs425mp4/storage"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+)
+
+const (
+	python_addr = "localhost:9999"
 )
 
 // Called by a client trying to PUT a file [localfilename] as [sdfsfilename] to any process [addr]
@@ -148,4 +153,16 @@ func ClientAskToReplicate(addr string, non_replica_addr string, sdfsfilename str
 	client := fileclient.NewClient(conn, nil)
 	err = client.MasterAskToReplicate(context.Background(), non_replica_addr, sdfsfilename, num_version)
 	return err
+}
+
+// Call internal gRPC to python to set the batch size
+func ClientSetBatchSize(batch_size int) error {
+	log.Printf("Requesting to send batch size to the user")
+	conn, err := grpc.Dial(python_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("ClientSetbatchSize() did not connect: %v", err)
+	}
+	defer conn.Close()
+	client := pythonclient.NewPythonClient(conn)
+	return client.SetBatchSize(context.Background(), batch_size)
 }

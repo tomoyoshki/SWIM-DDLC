@@ -14,9 +14,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	fileproto "cs425mp3/proto/filetransfer"
-	"cs425mp3/storage"
-	"cs425mp3/utils"
+	fileproto "cs425mp4/proto/filetransfer"
+	"cs425mp4/storage"
+	"cs425mp4/utils"
 )
 
 type Client struct {

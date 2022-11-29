@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"fmt"
+	"log"
 	"os"
 	"strings"
 )
@@ -90,4 +92,23 @@ func RemoveDuplicateValues(data []string) []string {
 		}
 	}
 	return list
+}
+
+func Mod(a, b int) int {
+	return (a%b + b) % b
+}
+
+func FormatPrint(print string) {
+	fmt.Print("\n" + strings.Repeat("=", 80) + "\n")
+	fmt.Println("=\t", print)
+	fmt.Println(strings.Repeat("=", 80))
+}
+
+func LogError(err error, message string, exit bool) {
+	if err != nil {
+		log.Println(message, ": ", err)
+		if exit {
+			os.Exit(1)
+		}
+	}
 }

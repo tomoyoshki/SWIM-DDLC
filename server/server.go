@@ -1,10 +1,10 @@
 package server
 
 import (
-	"cs425mp3/fileserver"
-	uploadpb "cs425mp3/proto/filetransfer"
-	"cs425mp3/storage"
-	"cs425mp3/utils"
+	"cs425mp4/grpcserver/fileserver"
+	uploadpb "cs425mp4/proto/filetransfer"
+	"cs425mp4/storage"
+	"cs425mp4/utils"
 	"fmt"
 	"log"
 	"net"

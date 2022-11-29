@@ -10,10 +10,10 @@ import (
 	"regexp"
 	"strconv"
 
-	"cs425mp3/client"
-	fileproto "cs425mp3/proto/filetransfer"
-	"cs425mp3/storage"
-	"cs425mp3/utils"
+	"cs425mp4/client"
+	fileproto "cs425mp4/proto/filetransfer"
+	"cs425mp4/storage"
+	"cs425mp4/utils"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

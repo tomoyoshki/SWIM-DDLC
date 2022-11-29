@@ -3,9 +3,9 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"cs425mp3/client"
-	"cs425mp3/server"
-	"cs425mp3/utils"
+	"cs425mp4/client"
+	"cs425mp4/server"
+	"cs425mp4/utils"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -189,13 +189,16 @@ func main() {
 			node_server.Close()
 			done <- true
 			ticker.Stop()
+		} else if strings.Split(input, " ")[0] == "test" {
+			size, _ := strconv.Atoi(strings.Split(input, " ")[1])
+			client.ClientSetBatchSize(size)
 		} else {
 			input_list := strings.Split(input, " ")
 			command := strings.ToLower(input_list[0])
 			switch command {
 			case "put":
 				if len(input_list) != 3 {
-					FormatPrint(fmt.Sprintf("Invalid format of PUT: %v", input_list))
+					utils.FormatPrint(fmt.Sprintf("Invalid format of PUT: %v", input_list))
 					break
 				}
 				log.Print("\n\nClient started requesting put")
@@ -214,7 +217,7 @@ func main() {
 				log.Print("\n\nMain put ended requesting")
 			case "get":
 				if len(input_list) != 3 {
-					FormatPrint(fmt.Sprintf("Invalid format of GET: %v", input_list))
+					utils.FormatPrint(fmt.Sprintf("Invalid format of GET: %v", input_list))
 					break
 				}
 				log.Print("\n\nClient started requesting get")
@@ -235,13 +238,13 @@ func main() {
 						break
 					}
 					if i == len(addresses)-1 {
-						FormatPrint("Received no files")
+						utils.FormatPrint("Received no files")
 					}
 				}
 				log.Print("\n\n Main ended requesting get")
 			case "delete":
 				if len(input_list) != 2 {
-					FormatPrint(fmt.Sprintf("Invalid format of DELETE: %v", input_list))
+					utils.FormatPrint(fmt.Sprintf("Invalid format of DELETE: %v", input_list))
 					break
 				}
 				log.Print("\n\n Client started requesting delete")
@@ -262,7 +265,7 @@ func main() {
 
 			case "ls":
 				if len(input_list) != 2 {
-					FormatPrint(fmt.Sprintf("Invalid format of ls: %v", input_list))
+					utils.FormatPrint(fmt.Sprintf("Invalid format of ls: %v", input_list))
 					break
 				}
 				sdfsfilename := input_list[1]
@@ -287,19 +290,19 @@ func main() {
 					fmt.Printf("=\tFilename: %v, highest version: %v, on replicas: %v,\n", file, meta.Version, meta.Replicas)
 				}
 			case "introducer":
-				FormatPrint(fmt.Sprintf("The current introducer is: %v \n", INTRODUCER_IP))
+				utils.FormatPrint(fmt.Sprintf("The current introducer is: %v \n", INTRODUCER_IP))
 			default:
 				// get-version sdfsfilename num-version localfilename
 				if command == "get-versions" {
 					if len(input_list) != 4 {
-						FormatPrint(fmt.Sprintf("Invalid format of get-versions: %v", input_list))
+						utils.FormatPrint(fmt.Sprintf("Invalid format of get-versions: %v", input_list))
 						break
 					}
 					log.Print("\n\n Client started get-version")
 					sdfsfilename := input_list[1]
 					num_version, err := strconv.Atoi(input_list[2])
 					if err != nil {
-						FormatPrint(fmt.Sprintf("Invalid format of get-versions: %v", input_list))
+						utils.FormatPrint(fmt.Sprintf("Invalid format of get-versions: %v", input_list))
 						break
 					}
 					localfilename := input_list[3]
@@ -348,9 +351,9 @@ func main() {
 // Establish a introducer or reestablish one
 func IntroduceServer() {
 	udp_addr, err := net.ResolveUDPAddr("udp", INTRODUCER_IP+":"+strconv.Itoa(INTRODUCER_PORT_NUMBER))
-	LogError(err, "Unable to resolve Introducer UDP Addr: ", true)
+	utils.LogError(err, "Unable to resolve Introducer UDP Addr: ", true)
 	introduce_server, err = net.ListenUDP("udp", udp_addr)
-	LogError(err, "Unable to Listen as a UDP server IntroduceServer(): ", true)
+	utils.LogError(err, "Unable to Listen as a UDP server IntroduceServer(): ", true)
 
 	MembershipListManager(Action{INSERT, this_id})
 
@@ -407,7 +410,7 @@ func IntroduceIntroducer() {
 	for _, addr := range AllPotentialProcesses {
 		// Get UDP address of the processes
 		potential_process_udp_addr, err := net.ResolveUDPAddr("udp", addr+":"+strconv.Itoa(PORT_NUMBER))
-		LogError(err, "Unable to resolve UDP Address: ", false)
+		utils.LogError(err, "Unable to resolve UDP Address: ", false)
 		// Dial each process
 		introduce_request, err := net.DialUDP("udp", nil, potential_process_udp_addr)
 		if err != nil {
@@ -418,10 +421,10 @@ func IntroduceIntroducer() {
 		packet_to_send := Packet{this_id, INTRODUCE, membership_list}
 		// Convert to UDP sendable format
 		packet, err := ConvertToSend(packet_to_send)
-		LogError(err, "Unable to convert the struct to udp message: ", false)
+		utils.LogError(err, "Unable to convert the struct to udp message: ", false)
 		// Ask each end point to send membership list back
 		_, err = introduce_request.Write(packet)
-		LogError(err, "Unable to send the packetfalse", false)
+		utils.LogError(err, "Unable to send the packetfalse", false)
 		// Set time out
 		introduce_request.SetDeadline(time.Now().Add(time.Millisecond))
 		response_buffer := make([]byte, 1024)
@@ -432,9 +435,9 @@ func IntroduceIntroducer() {
 			continue
 		}
 		response_buffer = bytes.Trim(response_buffer, "\x00")
-		LogError(err, "Unable to read from UDP on rejoin: ", false)
+		utils.LogError(err, "Unable to read from UDP on rejoin: ", false)
 		response_packet, err := ConvertFromResponse(response_buffer)
-		LogError(err, "Unable to covert from udp response to struct Packet: ", false)
+		utils.LogError(err, "Unable to covert from udp response to struct Packet: ", false)
 
 		// Copy the membership list to my ow
 		membership_mutex.Lock()
@@ -447,33 +450,33 @@ func IntroduceIntroducer() {
 
 func AskToIntroduce() {
 	introducer_address, err := net.ResolveUDPAddr("udp", INTRODUCER_IP+":"+strconv.Itoa(INTRODUCER_PORT_NUMBER))
-	LogError(err, "Unable to resolve introducer address in AskToIntroduce().", true)
+	utils.LogError(err, "Unable to resolve introducer address in AskToIntroduce().", true)
 
 	connection, err := net.DialUDP("udp", nil, introducer_address)
-	LogError(err, "Unable to dial introducer address in AskToIntroduce()", true)
+	utils.LogError(err, "Unable to dial introducer address in AskToIntroduce()", true)
 	defer connection.Close()
 
 	/* Create JOIN request packat */
 	request_packet := Packet{this_id, INTRODUCE, []string{}}
 	request, err := ConvertToSend(request_packet)
-	LogError(err, "Unable to convert join packet to bytes in AskToIntroduce()", true)
+	utils.LogError(err, "Unable to convert join packet to bytes in AskToIntroduce()", true)
 
 	_, err = connection.Write(request)
-	LogError(err, "Unable to Write to UDP connection to introducer in AskToIntroduce()", true)
+	utils.LogError(err, "Unable to Write to UDP connection to introducer in AskToIntroduce()", true)
 
 	response_buffer := make([]byte, 1024)
 	_, err = connection.Read(response_buffer)
-	LogError(err, "Unable to Read to UDP response from introducer in AskToIntroduce()", true)
+	utils.LogError(err, "Unable to Read to UDP response from introducer in AskToIntroduce()", true)
 	response_buffer = bytes.Trim(response_buffer, "\x00")
 
 	response, err := ConvertFromResponse(response_buffer)
-	LogError(err, "Unable to Convert UDP Byte response to packet in AskToIntroduce()", true)
+	utils.LogError(err, "Unable to Convert UDP Byte response to packet in AskToIntroduce()", true)
 
 	/* If introducer acknowledges our join request */
 	if response.Packet_Type == JOINACK {
 		membership_list = response.Packet_PiggyBack
 	} else {
-		LogError(err, "Unable to get JOINACK from introducer in AskToIntroduce()", true)
+		utils.LogError(err, "Unable to get JOINACK from introducer in AskToIntroduce()", true)
 	}
 }
 
@@ -484,7 +487,7 @@ func WhoIsIntroducer() string {
 		}
 		// Get UDP address of the processes node server.
 		potential_process_udp_addr, err := net.ResolveUDPAddr("udp", addr+":"+strconv.Itoa(PORT_NUMBER))
-		LogError(err, "Unable to resolve UDP Address in WhoIsIntroducer(): ", false)
+		utils.LogError(err, "Unable to resolve UDP Address in WhoIsIntroducer(): ", false)
 		// Dial each process
 		introduce_request, err := net.DialUDP("udp", nil, potential_process_udp_addr)
 		if err != nil {
@@ -495,10 +498,10 @@ func WhoIsIntroducer() string {
 		packet_to_send := Packet{this_id, WHOISINTRO, []string{""}}
 		// Convert to UDP sendable format
 		packet, err := ConvertToSend(packet_to_send)
-		LogError(err, "Unable to convert the struct to udp message: ", false)
+		utils.LogError(err, "Unable to convert the struct to udp message: ", false)
 		// Ask each end point to send membership list back
 		_, err = introduce_request.Write(packet)
-		LogError(err, "Unable to send the packetfalse", false)
+		utils.LogError(err, "Unable to send the packetfalse", false)
 		// Set time out
 		introduce_request.SetDeadline(time.Now().Add(time.Second))
 		response_buffer := make([]byte, 1024)
@@ -509,9 +512,9 @@ func WhoIsIntroducer() string {
 			continue
 		}
 		response_buffer = bytes.Trim(response_buffer, "\x00")
-		LogError(err, "Unable to read from UDP on rejoin: ", false)
+		utils.LogError(err, "Unable to read from UDP on rejoin: ", false)
 		response_packet, err := ConvertFromResponse(response_buffer)
-		LogError(err, "Unable to covert from udp response to struct Packet: ", false)
+		utils.LogError(err, "Unable to covert from udp response to struct Packet: ", false)
 		if response_packet.Packet_Type == IAM {
 			return strings.Split(response_packet.Packet_Senderid, "_")[0]
 		}
@@ -593,9 +596,9 @@ func InitializeMetadata(ProcessFiles map[string][]string) {
 // Establish typical server handling PING and ACK
 func NodeServer() {
 	udp_addr, err := net.ResolveUDPAddr("udp", this_ip+":"+strconv.Itoa(PORT_NUMBER))
-	LogError(err, "Unable to resolve Introducer UDP Addr: ", true)
+	utils.LogError(err, "Unable to resolve Introducer UDP Addr: ", true)
 	node_server, err = net.ListenUDP("udp", udp_addr)
-	LogError(err, "Unable to Listen as a UDP server in NodeServer()", true)
+	utils.LogError(err, "Unable to Listen as a UDP server in NodeServer()", true)
 	defer node_server.Close()
 	for !user_leave {
 		buffer := make([]byte, 1024)
@@ -616,12 +619,12 @@ func NodeServer() {
 			if INTRODUCER_IP == this_host {
 				ack_packet := Packet{this_id, IAM, []string{}}
 				ack_message, err := ConvertToSend(ack_packet)
-				LogError(err, "Unable to convert ack message to send NodeServer()", false)
+				utils.LogError(err, "Unable to convert ack message to send NodeServer()", false)
 				_, _ = node_server.WriteToUDP(ack_message, node_addr) // send Yes back
 			} else {
 				ack_packet := Packet{this_id, NO, []string{}}
 				ack_message, err := ConvertToSend(ack_packet)
-				LogError(err, "Unable to convert ack message to send NodeServer()", false)
+				utils.LogError(err, "Unable to convert ack message to send NodeServer()", false)
 				_, _ = node_server.WriteToUDP(ack_message, node_addr) // send No back
 			}
 			continue
@@ -631,7 +634,7 @@ func NodeServer() {
 		if response.Packet_Type == PING {
 			ack_packet := Packet{this_id, ACK, []string{}}
 			ack_message, err := ConvertToSend(ack_packet)
-			LogError(err, "Unable to convert ack message to send NodeServer()", false)
+			utils.LogError(err, "Unable to convert ack message to send NodeServer()", false)
 			_, _ = node_server.WriteToUDP(ack_message, node_addr) // send ack back to the pinger
 		} else {
 			// Receives FAILURE, BYE, JOIN, INTRODUCE
@@ -748,9 +751,9 @@ func NodeClient() {
 				for i, member := range ml {
 					// PING two successors and one predecessor
 					if member == this_id {
-						pred_id_1 := ml[mod(i-1, n)]
-						suc_id_1 := ml[mod(i+1, n)]
-						suc_id_2 := ml[mod(i+2, n)]
+						pred_id_1 := ml[utils.Mod(i-1, n)]
+						suc_id_1 := ml[utils.Mod(i+1, n)]
+						suc_id_2 := ml[utils.Mod(i+2, n)]
 						for _, neighbor := range []string{pred_id_1, suc_id_1, suc_id_2} {
 							go Ping(neighbor)
 						}
@@ -968,20 +971,20 @@ func Ping(target_id string) {
 	// generate target_ip
 	target_ip := ExtractIPFromID(target_id)
 	target_address, err := net.ResolveUDPAddr("udp", target_ip+":"+strconv.Itoa(PORT_NUMBER))
-	LogError(err, "Unable to resolve target address in Ping()", false)
+	utils.LogError(err, "Unable to resolve target address in Ping()", false)
 
 	// create Ping Message
 	ping_request_packet := Packet{this_id, PING, []string{}}
 	ping_request, err := ConvertToSend(ping_request_packet)
-	LogError(err, "Unable to convert ping request packet to bytes in NodeClient()", false)
+	utils.LogError(err, "Unable to convert ping request packet to bytes in NodeClient()", false)
 
 	// Connection fails
 	connection, err := net.DialUDP("udp", nil, target_address)
-	LogError(err, "Unable to establish connection with target in Ping()", false)
+	utils.LogError(err, "Unable to establish connection with target in Ping()", false)
 
 	// Send Ping to the target_id
 	_, err = connection.Write(ping_request)
-	LogError(err, "Unable to write to neighbor with target in Ping()", false)
+	utils.LogError(err, "Unable to write to neighbor with target in Ping()", false)
 
 	// Set time out
 	connection.SetDeadline(time.Now().Add(PING_TIMEOUT))
@@ -1000,7 +1003,7 @@ func Ping(target_id string) {
 
 		failure_notice_packet := Packet{this_id, FAILURE, []string{target_id}}
 		failure_notice_request, err := ConvertToSend(failure_notice_packet)
-		LogError(err, "Unable to write to neighbor with target in Ping()", false)
+		utils.LogError(err, "Unable to write to neighbor with target in Ping()", false)
 		_, _ = connection.Write(failure_notice_request)
 		// Then update membership list and notify others
 		membership_mutex.Lock()
@@ -1047,7 +1050,7 @@ func Ping(target_id string) {
 func NotifyFailure(failed_id string) {
 	notify_request_packet := Packet{this_id, FAILURE, []string{failed_id}}
 	notify_request, err := ConvertToSend(notify_request_packet)
-	LogError(err, "Unable to convert notify request packet to bytes in NotifyFailure()", false)
+	utils.LogError(err, "Unable to convert notify request packet to bytes in NotifyFailure()", false)
 	DisseminatePacket(notify_request)
 }
 
@@ -1060,14 +1063,14 @@ func DisseminatePacket(udp_message []byte) {
 		for i, member := range membership_list {
 			// send the packet to neighbors
 			if member == this_id {
-				pred_ip_addr_1 := ExtractIPFromID(membership_list[mod(i-1, len(membership_list))])
-				suc_ip_addr_1 := ExtractIPFromID(membership_list[mod(i+1, len(membership_list))])
-				suc_ip_addr_2 := ExtractIPFromID(membership_list[mod(i+2, len(membership_list))])
+				pred_ip_addr_1 := ExtractIPFromID(membership_list[utils.Mod(i-1, len(membership_list))])
+				suc_ip_addr_1 := ExtractIPFromID(membership_list[utils.Mod(i+1, len(membership_list))])
+				suc_ip_addr_2 := ExtractIPFromID(membership_list[utils.Mod(i+2, len(membership_list))])
 				for _, neighbor := range []string{pred_ip_addr_1, suc_ip_addr_1, suc_ip_addr_2} {
 					neighbor_udp_addr, err := net.ResolveUDPAddr("udp", neighbor+":"+strconv.Itoa(PORT_NUMBER))
-					LogError(err, "Unable to resolve Introducer's Neighbor UDP Addr: ", false)
+					utils.LogError(err, "Unable to resolve Introducer's Neighbor UDP Addr: ", false)
 					udp_connection, err := net.DialUDP("udp", nil, neighbor_udp_addr)
-					LogError(err, "Unable to establish connection with target in DisseminatePacket()", false)
+					utils.LogError(err, "Unable to establish connection with target in DisseminatePacket()", false)
 					_, _ = udp_connection.Write(udp_message)
 					// Close the connection since we do not care the result
 					udp_connection.Close()
@@ -1082,9 +1085,9 @@ func DisseminatePacket(udp_message []byte) {
 			}
 			neighbor_ip_addr := ExtractIPFromID(member_id)
 			neighbor_udp_addr, err := net.ResolveUDPAddr("udp", neighbor_ip_addr+":"+strconv.Itoa(PORT_NUMBER))
-			LogError(err, "Unable to resolve Introducer's Neighbor UDP Addr: ", false)
+			utils.LogError(err, "Unable to resolve Introducer's Neighbor UDP Addr: ", false)
 			udp_connection, err := net.DialUDP("udp", nil, neighbor_udp_addr)
-			LogError(err, "Unable to establish connection with target in DisseminatePacket()", false)
+			utils.LogError(err, "Unable to establish connection with target in DisseminatePacket()", false)
 			_, _ = udp_connection.Write(udp_message)
 			udp_connection.Close()
 		}
@@ -1202,23 +1205,4 @@ func GetMembershipList() ([]string, bool) {
 	membership_list_copy := make([]string, len(membership_list))
 	copy(membership_list_copy, membership_list)
 	return membership_list_copy, false
-}
-
-func LogError(err error, message string, exit bool) {
-	if err != nil {
-		log.Println(message, ": ", err)
-		if exit {
-			os.Exit(1)
-		}
-	}
-}
-
-func FormatPrint(print string) {
-	fmt.Print("\n" + strings.Repeat("=", 80) + "\n")
-	fmt.Println("=\t", print)
-	fmt.Println(strings.Repeat("=", 80))
-}
-
-func mod(a, b int) int {
-	return (a%b + b) % b
 }

@@ -16,3 +16,5 @@
 go.work
 .DS_Store
 .vscode
+# Python
+*pycache*
