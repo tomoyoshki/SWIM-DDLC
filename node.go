@@ -160,9 +160,9 @@ func load_test_set() {
 		// Loop through each test file under current dir:
 		files, _ := ioutil.ReadDir(directory)
 		for _, file := range files {
-			localfilename := file.Name()
+			localfilename := directory + "/" + file.Name()
 			// log.Print("\n\nClient started requesting put")
-			sdfsfilename := directory + "/" + localfilename
+			sdfsfilename := localfilename
 			addresses, new_sdfsfilename, err := client.ClientRequest(MASTER_ADDRESS, localfilename, sdfsfilename, utils.PUT)
 			if err != nil {
 				log.Printf("Error Requesting for files: %v", err)
