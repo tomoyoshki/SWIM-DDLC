@@ -8,6 +8,7 @@ import (
 	"cs425mp4/utils"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net"
@@ -130,6 +131,53 @@ const (
 	// NUM_VERSION = 3
 )
 
+/* ------------------------ Scheduler Data Structures ------------------------  */
+
+/* Channel for receiving new jobs (command as list of strings) */
+var JobsQueue = make(chan []string)
+var batch_size_1 = 32
+var batch_size_2 = 32
+var ScheduleWaitGroup sync.WaitGroup
+
+// Maps a process to its corresponding channel (for tracking each progress)
+var ProcessScheduleMap = make(map[string](chan utils.ChannelOutMessage))
+
+// Maps a process to a channel that will receive done message.
+var ProgressChannel = make(map[string](chan utils.ChannelOutMessage))
+
+type TrainTask struct {
+	model     string
+	test_data []string
+}
+
+var TrainTasksQueue = make(chan TrainTask)
+
+var test_dir = []string{"model/speech", "model/images"}
+
+// This function will load all test data to the SDFS at the beginning.
+func load_test_set() {
+	for _, directory := range test_dir {
+		// Loop through each test file under current dir:
+		files, _ := ioutil.ReadDir(directory)
+		for _, file := range files {
+			localfilename := directory + "/" + file.Name()
+			// log.Print("\n\nClient started requesting put")
+			sdfsfilename := localfilename
+			addresses, new_sdfsfilename, err := client.ClientRequest(MASTER_ADDRESS, localfilename, sdfsfilename, utils.PUT)
+			if err != nil {
+				log.Printf("Error Requesting for files: %v", err)
+				break
+			}
+			for _, fileserver_addr := range addresses {
+				target_addr_port := fmt.Sprintf("%s:%v", fileserver_addr, MASTER_PORT_NUMBER)
+				log.Printf("Uploading file %v to node server %v", new_sdfsfilename, target_addr_port)
+				go client.ClientUpload(target_addr_port, localfilename, new_sdfsfilename)
+			}
+		}
+	}
+	fmt.Println("Done Loading Testing Data!")
+}
+
 func main() {
 	os.RemoveAll("./log")
 	os.RemoveAll("./downloaded")
@@ -171,6 +219,7 @@ func main() {
 			go NodeClient()
 			go NodeServer()
 			if this_host == INTRODUCER_IP {
+				go load_test_set()
 				/* Setup the introducer */
 				go IntroduceServer()
 				go server.Server(MASTER_PORT_NUMBER, MasterIncommingChannel, MasterOutgoingChannel, filesystem_finish_channel, new_introducer_channel, &server_files)
@@ -783,6 +832,78 @@ func NewIntroducer() {
 		case new_introducer := <-new_introducer_channel:
 			INTRODUCER_IP = new_introducer
 			MASTER_ADDRESS = fmt.Sprintf("%s:%d", INTRODUCER_IP, MASTER_PORT_NUMBER)
+		}
+	}
+}
+
+func InitializeScheduleChannels() {
+
+}
+
+func Allocate(process string, total_task int, batch int, testfiles []string) {
+	defer ScheduleWaitGroup.Done()
+	// Fetch a batch at a time
+	for i := 0; i < total_task; i += batch {
+		end := i + batch
+		if end >= total_task {
+			end = total_task - 1
+		}
+		current_batch := testfiles[i:end]
+		fmt.Printf("Current batch files: %v", current_batch)
+		// Array of current batch file's metadata
+		files_replicas := make([]utils.FileMetaData, len(current_batch))
+
+		// For each file in the batch, send it through channel.
+		for curr, filename := range current_batch {
+			file_meta := file_metadata[filename]
+			files_replicas[curr] = file_meta
+		}
+		// TODO: Call askToReplicate and pass in files_replicas
+		// client.FetchBatchData(files_replicas)
+		// TODO: Fix the progress channel!
+		// This will wait until done message is receieved.
+		<-ProgressChannel[process]
+		log.Printf("Process %v's batch number %v is done! Moving on to the next batch.", process, i)
+	}
+}
+
+// This thread acts as the scheduler that allocates resources
+func SchedulerServer() {
+	for {
+		select {
+		case new_job := <-JobsQueue:
+			log.Printf("New job received: %v", new_job)
+			// command format: run model_name test_set_path
+			testset_directory := new_job[2]
+			test_files := []string{}
+			for file, _ := range file_metadata {
+				if strings.HasPrefix(file, testset_directory) {
+					test_files = append(test_files, file)
+				}
+			}
+			// log.Printf("Test files: %v", test_files)
+			number_files := len(test_files)
+			each_vm_tasks := number_files / len(membership_list)
+			for i, process := range membership_list {
+				ScheduleWaitGroup.Add(1)
+				// Allocate the test files for each process concurrently.
+				start := i * each_vm_tasks
+				end := i*each_vm_tasks + each_vm_tasks
+				go Allocate(process, each_vm_tasks, batch_size_1, test_files[start:end])
+			}
+			ScheduleWaitGroup.Wait()
+
+			fmt.Printf("Job for %v\n is DONE!", new_job[1])
+		}
+	}
+}
+
+// This will train the appropriate model.
+func Train() {
+	for {
+		select {
+		case current_task := <-TrainTasksQueue:
+			log.Printf("Current Process %v is processing model %v on batch.", this_host, current_task.model)
 		}
 	}
 }

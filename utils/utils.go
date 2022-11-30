@@ -14,6 +14,7 @@ const (
 	LS          = 3
 	STORE       = 4
 	NUM_VERSION = 5
+	ALLOCATE    = 6
 )
 
 func RemoveFromList(list []string, target string) []string {
