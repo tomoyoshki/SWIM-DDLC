@@ -18,3 +18,5 @@ go.work
 .vscode
 # Python
 *pycache*
+# Test data
+model/
