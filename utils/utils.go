@@ -62,11 +62,6 @@ type NodeMetaData struct {
 	Node string
 }
 
-type TrainTask struct {
-	model     string
-	test_data []string
-}
-
 func CreateFileDirectory(filepath string) {
 	target_filename_array := strings.Split(filepath, "/")
 	target_file_directory := strings.Join(target_filename_array[0:len(target_filename_array)-1], "/")

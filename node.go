@@ -8,6 +8,7 @@ import (
 	"cs425mp4/utils"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net"
@@ -144,7 +145,38 @@ var ProcessScheduleMap = make(map[string](chan utils.ChannelOutMessage))
 // Maps a process to a channel that will receive done message.
 var ProgressChannel = make(map[string](chan utils.ChannelOutMessage))
 
-var TrainTasksQueue = make(chan utils.TrainTask)
+type TrainTask struct {
+	model     string
+	test_data []string
+}
+
+var TrainTasksQueue = make(chan TrainTask)
+
+var test_dir = []string{"model/speech", "model/images"}
+
+// This function will load all test data to the SDFS at the beginning.
+func load_test_set() {
+	for _, directory := range test_dir {
+		// Loop through each test file under current dir:
+		files, _ := ioutil.ReadDir(directory)
+		for _, file := range files {
+			localfilename := file.Name()
+			// log.Print("\n\nClient started requesting put")
+			sdfsfilename := directory + "/" + localfilename
+			addresses, new_sdfsfilename, err := client.ClientRequest(MASTER_ADDRESS, localfilename, sdfsfilename, utils.PUT)
+			if err != nil {
+				log.Printf("Error Requesting for files: %v", err)
+				break
+			}
+			for _, fileserver_addr := range addresses {
+				target_addr_port := fmt.Sprintf("%s:%v", fileserver_addr, MASTER_PORT_NUMBER)
+				log.Printf("Uploading file %v to node server %v", new_sdfsfilename, target_addr_port)
+				go client.ClientUpload(target_addr_port, localfilename, new_sdfsfilename)
+			}
+		}
+	}
+	fmt.Println("Done Loading Testing Data!")
+}
 
 func main() {
 	os.RemoveAll("./log")
@@ -187,6 +219,7 @@ func main() {
 			go NodeClient()
 			go NodeServer()
 			if this_host == INTRODUCER_IP {
+				go load_test_set()
 				/* Setup the introducer */
 				go IntroduceServer()
 				go server.Server(MASTER_PORT_NUMBER, MasterIncommingChannel, MasterOutgoingChannel, filesystem_finish_channel, new_introducer_channel, &server_files)
@@ -867,9 +900,11 @@ func SchedulerServer() {
 
 // This will train the appropriate model.
 func Train() {
-	select {
-	case task := <-TrainTasksQueue:
-		log.Printf("Current Process %v is processing model %v on batch.", this_host, task.model)
+	for {
+		select {
+		case current_task := <-TrainTasksQueue:
+			log.Printf("Current Process %v is processing model %v on batch.", this_host, current_task.model)
+		}
 	}
 }
 
