@@ -22,7 +22,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type GoPythonClient interface {
-	SetBatchSize(ctx context.Context, in *BatchRequest, opts ...grpc.CallOption) (*BatchResponse, error)
+	InitializeModel(ctx context.Context, in *InitializeRequest, opts ...grpc.CallOption) (*InitializeResponse, error)
+	ModelInference(ctx context.Context, in *InferenceRequest, opts ...grpc.CallOption) (*InferenceResponse, error)
 }
 
 type goPythonClient struct {
@@ -33,9 +34,18 @@ func NewGoPythonClient(cc grpc.ClientConnInterface) GoPythonClient {
 	return &goPythonClient{cc}
 }
 
-func (c *goPythonClient) SetBatchSize(ctx context.Context, in *BatchRequest, opts ...grpc.CallOption) (*BatchResponse, error) {
-	out := new(BatchResponse)
-	err := c.cc.Invoke(ctx, "/gopython.GoPython/SetBatchSize", in, out, opts...)
+func (c *goPythonClient) InitializeModel(ctx context.Context, in *InitializeRequest, opts ...grpc.CallOption) (*InitializeResponse, error) {
+	out := new(InitializeResponse)
+	err := c.cc.Invoke(ctx, "/gopython.GoPython/InitializeModel", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *goPythonClient) ModelInference(ctx context.Context, in *InferenceRequest, opts ...grpc.CallOption) (*InferenceResponse, error) {
+	out := new(InferenceResponse)
+	err := c.cc.Invoke(ctx, "/gopython.GoPython/ModelInference", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +56,8 @@ func (c *goPythonClient) SetBatchSize(ctx context.Context, in *BatchRequest, opt
 // All implementations must embed UnimplementedGoPythonServer
 // for forward compatibility
 type GoPythonServer interface {
-	SetBatchSize(context.Context, *BatchRequest) (*BatchResponse, error)
+	InitializeModel(context.Context, *InitializeRequest) (*InitializeResponse, error)
+	ModelInference(context.Context, *InferenceRequest) (*InferenceResponse, error)
 	mustEmbedUnimplementedGoPythonServer()
 }
 
@@ -54,8 +65,11 @@ type GoPythonServer interface {
 type UnimplementedGoPythonServer struct {
 }
 
-func (UnimplementedGoPythonServer) SetBatchSize(context.Context, *BatchRequest) (*BatchResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetBatchSize not implemented")
+func (UnimplementedGoPythonServer) InitializeModel(context.Context, *InitializeRequest) (*InitializeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InitializeModel not implemented")
+}
+func (UnimplementedGoPythonServer) ModelInference(context.Context, *InferenceRequest) (*InferenceResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ModelInference not implemented")
 }
 func (UnimplementedGoPythonServer) mustEmbedUnimplementedGoPythonServer() {}
 
@@ -70,20 +84,38 @@ func RegisterGoPythonServer(s grpc.ServiceRegistrar, srv GoPythonServer) {
 	s.RegisterService(&GoPython_ServiceDesc, srv)
 }
 
-func _GoPython_SetBatchSize_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BatchRequest)
+func _GoPython_InitializeModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InitializeRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GoPythonServer).SetBatchSize(ctx, in)
+		return srv.(GoPythonServer).InitializeModel(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/gopython.GoPython/SetBatchSize",
+		FullMethod: "/gopython.GoPython/InitializeModel",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GoPythonServer).SetBatchSize(ctx, req.(*BatchRequest))
+		return srv.(GoPythonServer).InitializeModel(ctx, req.(*InitializeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GoPython_ModelInference_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InferenceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GoPythonServer).ModelInference(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gopython.GoPython/ModelInference",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GoPythonServer).ModelInference(ctx, req.(*InferenceRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -96,8 +128,12 @@ var GoPython_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*GoPythonServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "SetBatchSize",
-			Handler:    _GoPython_SetBatchSize_Handler,
+			MethodName: "InitializeModel",
+			Handler:    _GoPython_InitializeModel_Handler,
+		},
+		{
+			MethodName: "ModelInference",
+			Handler:    _GoPython_ModelInference_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

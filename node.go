@@ -12,6 +12,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -146,7 +147,6 @@ func main() {
 			fmt.Fprintf(os.Stdout, "> ")
 			continue
 		}
-
 		if input == "list_mem" {
 			fmt.Println("\n\nCurrent Membership List: ")
 			fmt.Println(strings.Repeat("=", 80))
@@ -189,9 +189,41 @@ func main() {
 			node_server.Close()
 			done <- true
 			ticker.Stop()
+		} else if input == "python" {
+			cmd := exec.Command("python3", "python/server.py")
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+
+			go cmd.Run()
 		} else if strings.Split(input, " ")[0] == "test" {
-			size, _ := strconv.Atoi(strings.Split(input, " ")[1])
-			client.ClientSetBatchSize(size)
+			size := 10
+			input_arr := strings.Split(input, " ")
+			if len(input_arr) > 1 {
+				size, err = strconv.Atoi(input_arr[1])
+			}
+			res, err := client.AskToInitializeModel("localhost:9999", 1, size, "image")
+			if err != nil {
+				log.Print("Test: error: ", err)
+				continue
+			}
+			log.Printf("Response!: %v", res)
+		} else if strings.Split(input, " ")[0] == "inference" {
+			inference_res, err := client.AskToInference("localhost:9999", 1, 0, 1, "python/data/")
+
+			if err != nil {
+				log.Panicf("AskToInference fails")
+				continue
+			}
+			ires := make(map[string][]string)
+			err = json.Unmarshal(inference_res, &ires)
+			// log.Printf("Inference result: %v", ires)
+			// var ires []string
+			// gob.NewDecoder(bytes.NewReader(inference_res)).Decode(&ires)
+
+			// log.Printf("Inference result: %v", ires)
+			for k, v := range ires {
+				log.Printf("%v: %v", k, v)
+			}
 		} else {
 			input_list := strings.Split(input, " ")
 			command := strings.ToLower(input_list[0])

@@ -14,17 +14,28 @@ class GoPythonStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.SetBatchSize = channel.unary_unary(
-                '/gopython.GoPython/SetBatchSize',
-                request_serializer=gopython__pb2.BatchRequest.SerializeToString,
-                response_deserializer=gopython__pb2.BatchResponse.FromString,
+        self.InitializeModel = channel.unary_unary(
+                '/gopython.GoPython/InitializeModel',
+                request_serializer=gopython__pb2.InitializeRequest.SerializeToString,
+                response_deserializer=gopython__pb2.InitializeResponse.FromString,
+                )
+        self.ModelInference = channel.unary_unary(
+                '/gopython.GoPython/ModelInference',
+                request_serializer=gopython__pb2.InferenceRequest.SerializeToString,
+                response_deserializer=gopython__pb2.InferenceResponse.FromString,
                 )
 
 
 class GoPythonServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def SetBatchSize(self, request, context):
+    def InitializeModel(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ModelInference(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -33,10 +44,15 @@ class GoPythonServicer(object):
 
 def add_GoPythonServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'SetBatchSize': grpc.unary_unary_rpc_method_handler(
-                    servicer.SetBatchSize,
-                    request_deserializer=gopython__pb2.BatchRequest.FromString,
-                    response_serializer=gopython__pb2.BatchResponse.SerializeToString,
+            'InitializeModel': grpc.unary_unary_rpc_method_handler(
+                    servicer.InitializeModel,
+                    request_deserializer=gopython__pb2.InitializeRequest.FromString,
+                    response_serializer=gopython__pb2.InitializeResponse.SerializeToString,
+            ),
+            'ModelInference': grpc.unary_unary_rpc_method_handler(
+                    servicer.ModelInference,
+                    request_deserializer=gopython__pb2.InferenceRequest.FromString,
+                    response_serializer=gopython__pb2.InferenceResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -49,7 +65,7 @@ class GoPython(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def SetBatchSize(request,
+    def InitializeModel(request,
             target,
             options=(),
             channel_credentials=None,
@@ -59,8 +75,25 @@ class GoPython(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/gopython.GoPython/SetBatchSize',
-            gopython__pb2.BatchRequest.SerializeToString,
-            gopython__pb2.BatchResponse.FromString,
+        return grpc.experimental.unary_unary(request, target, '/gopython.GoPython/InitializeModel',
+            gopython__pb2.InitializeRequest.SerializeToString,
+            gopython__pb2.InitializeResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ModelInference(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/gopython.GoPython/ModelInference',
+            gopython__pb2.InferenceRequest.SerializeToString,
+            gopython__pb2.InferenceResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
