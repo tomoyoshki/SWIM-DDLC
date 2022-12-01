@@ -195,12 +195,8 @@ func main() {
 			cmd.Stderr = os.Stderr
 
 			go cmd.Run()
-		} else if strings.Split(input, " ")[0] == "test" {
+		} else if strings.Split(input, " ")[0] == "train" {
 			size := 10
-			input_arr := strings.Split(input, " ")
-			if len(input_arr) > 1 {
-				size, err = strconv.Atoi(input_arr[1])
-			}
 			res, err := client.AskToInitializeModel("localhost:9999", 1, size, "image")
 			if err != nil {
 				log.Print("Test: error: ", err)
@@ -216,11 +212,6 @@ func main() {
 			}
 			ires := make(map[string][]string)
 			err = json.Unmarshal(inference_res, &ires)
-			// log.Printf("Inference result: %v", ires)
-			// var ires []string
-			// gob.NewDecoder(bytes.NewReader(inference_res)).Decode(&ires)
-
-			// log.Printf("Inference result: %v", ires)
 			for k, v := range ires {
 				log.Printf("%v: %v", k, v)
 			}

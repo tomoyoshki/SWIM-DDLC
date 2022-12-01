@@ -128,6 +128,7 @@ class GoPythonServer(GoPythonServicer):
         print(f"Inference data folder: {inference_data_folder}")
 
         result = processData(job_id, batch_id, inference_data_folder)
+        result_directory = "/python/result/"
         print(result)
         res = json.dumps(result).encode('utf-8')
         # print(user_encode_data)
