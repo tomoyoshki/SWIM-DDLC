@@ -141,8 +141,8 @@ var batch_size_2 = 32
 var ScheduleWaitGroup sync.WaitGroup
 var round_robin_running = false
 var jobs []int
-var current_job = -1 // Should iterate between 0 and 1, indicating current job
-var job_status = make(map[int]JobStatus)
+var current_job = -1                     // Should iterate between 0 and 1, indicating current job
+var job_status = make(map[int]JobStatus) // Maps each job id to a Job Status
 
 // // Maps a process to its corresponding channel (for tracking each progress)
 // var ProcessScheduleMap = make(map[string](chan utils.ChannelOutMessage))
@@ -156,7 +156,8 @@ type TrainTask struct {
 }
 
 type JobStatus struct {
-	job_id                  string
+	job_id                  int
+	model_type              string              // image or speech
 	each_process_total_task int                 // Total test files in this job / num_workers
 	process_allocation      map[string]int      // Maps process to which i-th N/10 (assume num_workers = 10)
 	process_batch_progress  map[string]int      // Maps process to its current batch number in the job (which batch in each N/10)
@@ -166,14 +167,17 @@ type JobStatus struct {
 }
 
 var test_dir = []string{"model/speech", "model/images"}
+var dir_test_files_map = make(map[string][]string) // Maps a directory to its files
 
 // This function will load all test data to the SDFS at the beginning.
 func load_test_set() {
 	for _, directory := range test_dir {
+		all_files := []string{}
 		// Loop through each test file under current dir:
 		files, _ := ioutil.ReadDir(directory)
 		for _, file := range files {
 			localfilename := directory + "/" + file.Name()
+			all_files = append(all_files, localfilename)
 			// log.Print("\n\nClient started requesting put")
 			sdfsfilename := localfilename
 			addresses, new_sdfsfilename, err := client.ClientRequest(MASTER_ADDRESS, localfilename, sdfsfilename, utils.PUT)
@@ -187,6 +191,7 @@ func load_test_set() {
 				go client.ClientUpload(target_addr_port, localfilename, new_sdfsfilename)
 			}
 		}
+		dir_test_files_map[directory] = all_files
 	}
 	fmt.Println("Done Loading Testing Data!")
 }
@@ -872,43 +877,81 @@ func NewIntroducer() {
 }
 
 // TODO: Before allocation happens, must initialize the job status map!
-func InitializeJobStatus() {
+func InitializeJobStatus(job_id int, model_type string) {
 	// Initializes the num_workers, batch_size, etc
 	// Calculates the total task for each process,
 	// Assigns appropriate test_files
+
+	// If the job exists, delete it and re-initialize it
+	if _, ok := job_status[job_id]; ok {
+		delete(job_status, job_id)
+	}
+	var dir string
+	if model_type == "speech" {
+		dir = test_dir[0]
+	} else if model_type == "image" {
+		dir = test_dir[1]
+	} else {
+		panic("underfined model type")
+	}
+	all_files := dir_test_files_map[dir] // Gets all the test files under dir.
+
+	//! Fix the hardcoded batch_size_1 (if needed)
+	new_status := JobStatus{job_id: job_id, batch_size: batch_size_1, model_type: model_type}
+	mem_list, _ := GetMembershipList() //TODO: ADD LOCKING
+	N := len(mem_list)
+	new_status.num_workers = N
+	new_status.each_process_total_task = len(all_files) / N
+	start, end := 0, 0
+	for i, process := range mem_list {
+		start = i * new_status.each_process_total_task
+		end = start + new_status.each_process_total_task
+		new_status.process_test_files[process] = all_files[start:end]
+		new_status.process_allocation[process] = i     // Assign batch number.
+		new_status.process_batch_progress[process] = 0 // progress set to 0.
+	}
+	// Handle leftovers (total task per process alaways round down)
+	if end < len(all_files) {
+		last_process := mem_list[N-1]
+		for _, left_over := range all_files[end:] {
+			new_status.process_test_files[last_process] = append(new_status.process_test_files[last_process], left_over)
+		}
+	}
+	job_status[job_id] = new_status
+	log.Printf("Job id %v (model type: %v) initialized!", job_id, model_type)
 }
 
 // Keeps on sending test files for each process by batch.
 // TODO: TO BE DELETED ONCE RoundRobin IS DONE.
-func Allocate(process string, total_task int, batch int, testfiles []string) {
-	defer ScheduleWaitGroup.Done()
-	// Fetch a batch at a time
-	for i := 0; i < total_task; i += batch {
-		if len(jobs) == 2 {
-			break
-		}
-		end := i + batch
-		if end >= total_task {
-			end = total_task - 1
-		}
-		current_batch := testfiles[i:end]
-		fmt.Printf("Current batch files: %v", current_batch)
-		// Array of current batch file's metadata
-		// files_replicas := make([]utils.FileMetaData, len(current_batch))
-		files_replicas := make(map[string]utils.FileMetaData)
-		// For each file in the batch, send it through channel.
-		for _, filename := range current_batch {
-			file_meta := file_metadata[filename]
-			files_replicas[filename] = file_meta
-		}
-		// TODO: Call askToReplicate and pass in files_replicas
-		// client.FetchBatchData(process, files_replicas)
+// func Allocate(process string, total_task int, batch int, testfiles []string) {
+// 	defer ScheduleWaitGroup.Done()
+// 	// Fetch a batch at a time
+// 	for i := 0; i < total_task; i += batch {
+// 		if len(jobs) == 2 {
+// 			break
+// 		}
+// 		end := i + batch
+// 		if end >= total_task {
+// 			end = total_task - 1
+// 		}
+// 		current_batch := testfiles[i:end]
+// 		fmt.Printf("Current batch files: %v", current_batch)
+// 		// Array of current batch file's metadata
+// 		// files_replicas := make([]utils.FileMetaData, len(current_batch))
+// 		files_replicas := make(map[string]utils.FileMetaData)
+// 		// For each file in the batch, send it through channel.
+// 		for _, filename := range current_batch {
+// 			file_meta := file_metadata[filename]
+// 			files_replicas[filename] = file_meta
+// 		}
+// 		// TODO: Call askToReplicate and pass in files_replicas
+// 		// client.FetchBatchData(process, files_replicas)
 
-		log.Printf("Process %v's batch number %v is done! Moving on to the next batch.", process, i)
-	}
+// 		log.Printf("Process %v's batch number %v is done! Moving on to the next batch.", process, i)
+// 	}
 
-	// Handle 2 jobs currently
-}
+// 	// Handle 2 jobs currently
+// }
 
 // called on the per-process basis: round-robins style allocation
 // TODO: Change parameters. Inside len(jobs) == 1, should just use job_status datastructure to determine progress.
@@ -1020,38 +1063,40 @@ func RoundRobin(process string, total_task int, batch int, testfiles []string) {
 func SchedulerServer() {
 	for {
 		select {
-		case new_job := <-JobsQueue:
+		case <-JobsQueue:
 			if round_robin_running {
 				// TODO FIX new job's name
+				InitializeJobStatus(1, "speech")
 				jobs = append(jobs, 1) // 2nd job
 			} else {
-				jobs = append(jobs, 0) // 1st job
+				jobs = append(jobs, 0)          // 1st job
+				InitializeJobStatus(1, "image") // Iniatilize This job
 				round_robin_running = true
 				// go RoundRobin()
 			}
-			log.Printf("New job received: %v", new_job)
-			// command format: run model_name test_set_path
-			testset_directory := new_job[2]
-			test_files := []string{}
-			for file, _ := range file_metadata {
-				if strings.HasPrefix(file, testset_directory) {
-					test_files = append(test_files, file)
-				}
-			}
-			// log.Printf("Test files: %v", test_files)
-			number_files := len(test_files)
-			each_vm_tasks := number_files / len(membership_list)
-			members_host := GetHostsFromID(membership_list) // Get rid of timestamp
-			for i, process := range members_host {
-				ScheduleWaitGroup.Add(1)
-				// Allocate the test files for each process concurrently.
-				start := i * each_vm_tasks
-				end := i*each_vm_tasks + each_vm_tasks
-				go Allocate(process, each_vm_tasks, batch_size_1, test_files[start:end])
-			}
-			ScheduleWaitGroup.Wait()
+			// log.Printf("New job received: %v", new_job)
+			// // command format: run model_name test_set_path
+			// testset_directory := new_job[2]
+			// test_files := []string{}
+			// for file, _ := range file_metadata {
+			// 	if strings.HasPrefix(file, testset_directory) {
+			// 		test_files = append(test_files, file)
+			// 	}
+			// }
+			// // log.Printf("Test files: %v", test_files)
+			// number_files := len(test_files)
+			// each_vm_tasks := number_files / len(membership_list)
+			// members_host := GetHostsFromID(membership_list) // Get rid of timestamp
+			// for i, process := range members_host {
+			// 	ScheduleWaitGroup.Add(1)
+			// 	// Allocate the test files for each process concurrently.
+			// 	start := i * each_vm_tasks
+			// 	end := i*each_vm_tasks + each_vm_tasks
+			// 	go Allocate(process, each_vm_tasks, batch_size_1, test_files[start:end])
+			// }
+			// ScheduleWaitGroup.Wait()
 
-			fmt.Printf("Job for %v\n is DONE!", new_job[1])
+			// fmt.Printf("Job for %v\n is DONE!", new_job[1])
 		}
 	}
 }
