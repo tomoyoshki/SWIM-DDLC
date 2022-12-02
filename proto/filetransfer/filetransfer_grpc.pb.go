@@ -28,6 +28,10 @@ type FileServiceClient interface {
 	MasterRequest(ctx context.Context, in *MasterNodeRequest, opts ...grpc.CallOption) (*MasterNodeResponse, error)
 	MasterElectBroadcast(ctx context.Context, in *MasterElectRequest, opts ...grpc.CallOption) (*MasterElectResponse, error)
 	MasterAskToReplicate(ctx context.Context, in *MasterReplicateRequest, opts ...grpc.CallOption) (*MasterReplicateResponse, error)
+	// Ask someone to Initialize
+	StartJob(ctx context.Context, in *JobRequest, opts ...grpc.CallOption) (*JobResponse, error)
+	// Tells a VM that these replicas have inferenece files you have
+	SendJobInformation(ctx context.Context, in *JobInformationRequest, opts ...grpc.CallOption) (*JobInformationResponse, error)
 }
 
 type fileServiceClient struct {
@@ -140,6 +144,24 @@ func (c *fileServiceClient) MasterAskToReplicate(ctx context.Context, in *Master
 	return out, nil
 }
 
+func (c *fileServiceClient) StartJob(ctx context.Context, in *JobRequest, opts ...grpc.CallOption) (*JobResponse, error) {
+	out := new(JobResponse)
+	err := c.cc.Invoke(ctx, "/filetransfer.FileService/StartJob", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fileServiceClient) SendJobInformation(ctx context.Context, in *JobInformationRequest, opts ...grpc.CallOption) (*JobInformationResponse, error) {
+	out := new(JobInformationResponse)
+	err := c.cc.Invoke(ctx, "/filetransfer.FileService/SendJobInformation", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FileServiceServer is the server API for FileService service.
 // All implementations must embed UnimplementedFileServiceServer
 // for forward compatibility
@@ -150,6 +172,10 @@ type FileServiceServer interface {
 	MasterRequest(context.Context, *MasterNodeRequest) (*MasterNodeResponse, error)
 	MasterElectBroadcast(context.Context, *MasterElectRequest) (*MasterElectResponse, error)
 	MasterAskToReplicate(context.Context, *MasterReplicateRequest) (*MasterReplicateResponse, error)
+	// Ask someone to Initialize
+	StartJob(context.Context, *JobRequest) (*JobResponse, error)
+	// Tells a VM that these replicas have inferenece files you have
+	SendJobInformation(context.Context, *JobInformationRequest) (*JobInformationResponse, error)
 	mustEmbedUnimplementedFileServiceServer()
 }
 
@@ -174,6 +200,12 @@ func (UnimplementedFileServiceServer) MasterElectBroadcast(context.Context, *Mas
 }
 func (UnimplementedFileServiceServer) MasterAskToReplicate(context.Context, *MasterReplicateRequest) (*MasterReplicateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MasterAskToReplicate not implemented")
+}
+func (UnimplementedFileServiceServer) StartJob(context.Context, *JobRequest) (*JobResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StartJob not implemented")
+}
+func (UnimplementedFileServiceServer) SendJobInformation(context.Context, *JobInformationRequest) (*JobInformationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SendJobInformation not implemented")
 }
 func (UnimplementedFileServiceServer) mustEmbedUnimplementedFileServiceServer() {}
 
@@ -307,6 +339,42 @@ func _FileService_MasterAskToReplicate_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FileService_StartJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(JobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FileServiceServer).StartJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/filetransfer.FileService/StartJob",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FileServiceServer).StartJob(ctx, req.(*JobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FileService_SendJobInformation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(JobInformationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FileServiceServer).SendJobInformation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/filetransfer.FileService/SendJobInformation",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FileServiceServer).SendJobInformation(ctx, req.(*JobInformationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FileService_ServiceDesc is the grpc.ServiceDesc for FileService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -329,6 +397,14 @@ var FileService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "MasterAskToReplicate",
 			Handler:    _FileService_MasterAskToReplicate_Handler,
+		},
+		{
+			MethodName: "StartJob",
+			Handler:    _FileService_StartJob_Handler,
+		},
+		{
+			MethodName: "SendJobInformation",
+			Handler:    _FileService_SendJobInformation_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

@@ -175,3 +175,38 @@ func (c Client) MasterAskToReplicate(ctx context.Context, replica_addr string, s
 	})
 	return err
 }
+
+// Ask the machine to train their models
+func (c Client) StartJob(ctx context.Context, batch_size int, model_type string) (string, error) {
+	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
+	defer cancel()
+	res, err := c.client.StartJob(ctx, &fileproto.JobRequest{
+		BatchSize: int32(batch_size),
+		ModelType: model_type,
+	})
+	if err != nil {
+		log.Printf("Startjob() error: %v", err)
+	}
+	// log.Printf("Startjob result: %v", res.Status)
+	return res.Status, err
+}
+
+// Coordinator tell some machine which replicas have files, return the result that machine inferenced on
+func (c Client) SendJobInformation(ctx context.Context, batch_id int, job_id int, replicas map[string][]string) (string, error) {
+	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(100*time.Second))
+	defer cancel()
+	buf := &bytes.Buffer{}
+	gob.NewEncoder(buf).Encode(replicas)
+	replicas_bytes := buf.Bytes()
+	res, err := c.client.SendJobInformation(ctx, &fileproto.JobInformationRequest{
+		BatchId:  int32(batch_id),
+		JobId:    int32(job_id),
+		Replicas: replicas_bytes,
+	})
+
+	if err != nil {
+		log.Printf("SendJobInformation(): %v", err)
+		return "", err
+	}
+	return res.Status, nil
+}

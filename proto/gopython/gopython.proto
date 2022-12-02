@@ -9,13 +9,28 @@ package gopython;
 option go_package = "cs425mp3/proto/gopython";
 
 service GoPython {
-    rpc SetBatchSize(BatchRequest) returns (BatchResponse) {}
+    rpc InitializeModel(InitializeRequest) returns (InitializeResponse){}
+    rpc ModelInference(InferenceRequest) returns (InferenceResponse){}
 }
 
-message BatchRequest {
+message InitializeRequest {
     int32 batch_size = 1;
+    string model_type = 2;
+    int32 job_id = 3;
 }
 
-message BatchResponse {
+message InitializeResponse {
     string status = 1;
+}
+
+message InferenceRequest {
+    int32 job_id = 1;
+    int32 batch_id = 2;
+    int32 inference_size = 3;
+    string inference_data_folder = 4;
+}
+
+message InferenceResponse {
+    string status = 1;
+    bytes inference_result = 2;
 }
