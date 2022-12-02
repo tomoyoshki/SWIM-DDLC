@@ -203,6 +203,8 @@ func (s Server) SendJobInformation(ctx context.Context, req *fileproto.JobInform
 	response := fileproto.JobInformationResponse{
 		Status: "OK",
 	}
+
+	log.Println("Received SendJobInformation()")
 	file_prefix := fmt.Sprintf("python/data/%d/%d/", req.JobId, req.BatchId)
 	var file_replicas map[string][]string
 	gob.NewDecoder(bytes.NewReader(req.Replicas)).Decode(&file_replicas)
@@ -210,8 +212,9 @@ func (s Server) SendJobInformation(ctx context.Context, req *fileproto.JobInform
 	// for each file in the batch, download it to python/data/job_id/batch_id/sdfsfilename
 	for file_name, replicas := range file_replicas {
 		for _, replica := range replicas {
-			local_file_name := file_prefix + file_name
-			err := client.ClientDownload(replica, local_file_name, file_name)
+			local_file_name := file_prefix + "test/" + file_name
+			log.Printf("Replica: %v\n, filename: %v", replica, file_name)
+			err := client.ClientDownload(replica, "../" + local_file_name, file_name)
 			if err == nil {
 				break
 			}
@@ -220,10 +223,12 @@ func (s Server) SendJobInformation(ctx context.Context, req *fileproto.JobInform
 
 	// Tell python to inference and get the result
 	res, err := client.AskToInference("localhost:9999", int(req.JobId), int(req.BatchId), len(file_replicas), file_prefix)
+	log.Print("Done inferencing")
 	if err != nil {
 		response.Status = "Failed to inference"
 		return &response, err
 	}
+	log.Print("Have a result to send back")
 	response.InferenceResult = res
 	return &response, nil
 }
