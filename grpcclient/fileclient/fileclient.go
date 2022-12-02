@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
+	"encoding/json"
 	"io"
 	"log"
 	"os"
@@ -207,6 +208,11 @@ func (c Client) SendJobInformation(ctx context.Context, batch_id int, job_id int
 	if err != nil {
 		log.Printf("SendJobInformation(): %v", err)
 		return "", err
+	}
+	ires := make(map[string][]string)
+	err = json.Unmarshal(res.InferenceResult, &ires)
+	for k, v := range ires {
+		log.Printf("%v: %v", k, v)
 	}
 	return res.Status, nil
 }

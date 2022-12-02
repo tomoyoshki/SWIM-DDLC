@@ -264,6 +264,11 @@ func main() {
 				continue
 			}
 			log.Printf("Response!: %v", res)
+		} else if strings.Split(input, " ")[0] == "start" {
+			// func (c Client) SendJobInformation(ctx context.Context, batch_id int, job_id int, replicas map[string][]string) (string, error) {
+			replicas := make(map[string][]string)
+			replicas["1-image1.jpg"] = []string{"fa22-cs425-7501.cs.illinois.edu:3333"}
+			client.SendInferenceInformation("fa22-cs425-7503.cs.illinois.edu:3333", 1, 0, replicas)
 		} else if strings.Split(input, " ")[0] == "inference" {
 			inference_res, err := client.AskToInference("localhost:9999", 1, 0, 1, "python/data/")
 
