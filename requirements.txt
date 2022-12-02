@@ -1,0 +1,9 @@
+Cython
+grpcio
+grpcio-tools
+matplotlib
+numpy
+Pillow
+torch
+torchvision
+tqdm

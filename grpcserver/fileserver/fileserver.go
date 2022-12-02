@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -186,4 +187,48 @@ func (s Server) MasterAskToReplicate(ctx context.Context, req *fileproto.MasterR
 		}
 	}
 	return &response, err
+}
+
+// The node containing the file [req.Sdfsfilename] is sending it to some replica process [req.ReplicaAddr]
+func (s Server) StartJob(ctx context.Context, req *fileproto.JobRequest) (*fileproto.JobResponse, error) {
+	response := fileproto.JobResponse{
+		Status: "OK",
+	}
+	client.AskToInitializeModel("localhost:9999", int(req.JobId), int(req.BatchSize), req.ModelType)
+	return &response, nil
+}
+
+// First download files into a folder, and then starts inferencing
+func (s Server) SendJobInformation(ctx context.Context, req *fileproto.JobInformationRequest) (*fileproto.JobInformationResponse, error) {
+	response := fileproto.JobInformationResponse{
+		Status: "OK",
+	}
+
+	log.Println("Received SendJobInformation()")
+	file_prefix := fmt.Sprintf("python/data/%d/%d/", req.JobId, req.BatchId)
+	var file_replicas map[string][]string
+	gob.NewDecoder(bytes.NewReader(req.Replicas)).Decode(&file_replicas)
+
+	// for each file in the batch, download it to python/data/job_id/batch_id/sdfsfilename
+	for file_name, replicas := range file_replicas {
+		for _, replica := range replicas {
+			local_file_name := file_prefix + "test/" + file_name
+			log.Printf("Replica: %v\n, filename: %v", replica, file_name)
+			err := client.ClientDownload(replica, "../" + local_file_name, file_name)
+			if err == nil {
+				break
+			}
+		}
+	}
+
+	// Tell python to inference and get the result
+	res, err := client.AskToInference("localhost:9999", int(req.JobId), int(req.BatchId), len(file_replicas), file_prefix)
+	log.Print("Done inferencing")
+	if err != nil {
+		response.Status = "Failed to inference"
+		return &response, err
+	}
+	log.Print("Have a result to send back")
+	response.InferenceResult = res
+	return &response, nil
 }

@@ -155,14 +155,67 @@ func ClientAskToReplicate(addr string, non_replica_addr string, sdfsfilename str
 	return err
 }
 
-// Call internal gRPC to python to set the batch size
-func ClientSetBatchSize(batch_size int) error {
-	log.Printf("Requesting to send batch size to the user")
-	conn, err := grpc.Dial(python_addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+// Requested by client to the user
+func ClientStartJob(addr string, batch_size int, model_type string) (string, error) {
+	log.Printf("Client requesting to start job")
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Printf("ClientSetbatchSize() did not connect: %v", err)
+		log.Printf("ClientAskToReplicate() did not connect: %v", err)
+		return "", err
+	}
+	defer conn.Close()
+
+	client := fileclient.NewClient(conn, nil)
+	res_status, err := client.StartJob(context.Background(), batch_size, model_type)
+	if res_status != "OK" {
+		log.Print("Failed to initialize model")
+	}
+	return res_status, err
+}
+
+func SendInferenceInformation(addr string, job_id int, batch_id int, file_replicas map[string][]string) string {
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("SendInferenceInformation() did not connect: %v", err)
+		return "Connection Failed"
+	}
+	defer conn.Close()
+	client := fileclient.NewClient(conn, nil)
+	log.Printf("Sending Inference Information")
+	res_status, err := client.SendJobInformation(context.Background(), batch_id, job_id, file_replicas)
+	log.Printf("Have a inference response")
+	if res_status != "OK" {
+		log.Printf("SendInferenceInformation() failed")
+		return "Send Information Failed Failed"
+	}
+	log.Print("Good status")
+	return "OK"
+}
+
+func AskToInitializeModel(addr string, job_id int, batch_size int, model_type string) (string, error) {
+	log.Println("Requested to initialize model job")
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("ClientAskToReplicate() did not connect: %v", err)
+		return "", err
 	}
 	defer conn.Close()
 	client := pythonclient.NewPythonClient(conn)
-	return client.SetBatchSize(context.Background(), batch_size)
+	res_status, err := client.InitializeModel(context.Background(), job_id, batch_size, model_type)
+	if res_status != "OK" {
+		log.Print("Failed to initialize model")
+	}
+	return res_status, err
+}
+
+func AskToInference(addr string, job_id int, batch_id int, inference_size int, data_folder string) ([]byte, error) {
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("AskToInference() did not connect: %v", err)
+		return nil, err
+	}
+	defer conn.Close()
+	client := pythonclient.NewPythonClient(conn)
+	res_status, err := client.ModelInference(context.Background(), job_id, batch_id, inference_size, data_folder)
+	return res_status, nil
 }

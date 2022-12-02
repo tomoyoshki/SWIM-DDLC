@@ -3,24 +3,139 @@ from concurrent.futures import ThreadPoolExecutor
 
 import grpc
 import numpy as np
+import torch
+from torchvision import datasets, models, transforms
+import warnings
 
-from gopython_pb2 import BatchRequest, BatchResponse
+import json
+
+from gopython_pb2 import InitializeRequest, InitializeResponse, InferenceRequest, InferenceResponse
 from gopython_pb2_grpc import GoPythonServicer, add_GoPythonServicer_to_server
 
+warnings.filterwarnings('ignore')
 
-def find_outliers(data: np.ndarray):
-    """Return indices where values more than 2 standard deviations from mean"""
-    out = np.where(np.abs(data - data.mean()) > 2 * data.std())
-    # np.where returns a tuple for each dimension, we want the 1st element
-    return out[0]
+import signal
+
+server = None
+
+model1 = None
+model1_initialized = False
+model2 = None
+model2_initialized = False
+
+image_utils = None
+
+job1_done = True
+job2_done = True
+
+model_types = ["", ""]
 
 
+def SigINTHandler(signum, frame):
+    if server != None:
+        logging.info("Received control-c, now stopping model")
+        server.stop(None)
+
+def prepareModel(job_id, model_type):
+    global model1
+    global model2
+    global model1_initialized
+    global model2_initialized
+    if job_id == 0:
+        if model1_initialized == False:
+            logging.info("Model1 is initialized")
+            if model_type == "image":
+                model1 = models.resnet50(pretrained=False)
+                model1.load_state_dict(torch.load("./python/resnet50.pth"))
+                model1_initialized = True
+            elif model_type == "speech":
+                model1 = torch.hub.load('pytorch/fairseq', 'transformer.wmt14.en-fr', tokenizer='moses', bpe='subword_nmt')
+                model1_initialized = True
+            else:
+                logging.info("Received bad model type")
+                return -1
+        else:
+            logging.info("Model1 is currently occupied")
+            return -2
+    elif job_id == 1:
+        if model2_initialized == False:
+            logging.info("Model2 is initialized")
+            if model_type == "image":
+                model2 = models.resnet50(pretrained=False)
+                model2.load_state_dict(torch.load("./python/resnet50.pth"))
+                model2_initialized = True
+            elif model_type == "speech":
+                model2 = torch.hub.load('pytorch/fairseq', 'transformer.wmt14.en-fr', tokenizer='moses', bpe='subword_nmt')
+                model2_initialized = True
+            else:
+                logging.info("Received bad model type")
+                return -1
+        else:
+            logging.info("Model2 is currently occupied")
+            return -2
+    else:
+        logging.info("Invalid job id, we only support job0 and job1")
+        return -2
+    model_types[job_id] = model_type
+    return 0
+
+def processData(job_id, batch_id, data_folder):
+    if model_types[job_id] == "image":
+        logging.info("Image inferencing")
+        data_transform = transforms.Compose([transforms.ToTensor()])
+        image_datasets = datasets.ImageFolder(data_folder, data_transform)
+        dataloader = torch.utils.data.DataLoader(image_datasets)
+        with open("./python/imagenet_classes.txt", "r") as f:
+            categories = [s.strip() for s in f.readlines()]
+        inference_result = {}
+        with torch.no_grad():
+            for i, (images, _) in enumerate(dataloader, 0):
+                if job_id == 0:
+                    res = model1(images)
+                else:
+                    res = model2(images)
+                output = torch.nn.functional.softmax(res, dim=1)[0]
+                top5_prob, top5_catid = torch.topk(output, 5)
+                sample_fname, _ = dataloader.dataset.samples[i]
+                inference_result[sample_fname] = [categories[top5_catid[i]] for i in range(5)]
+        return inference_result
+    else:
+        logging.info("Speech inferencing")
+
+    
 class GoPythonServer(GoPythonServicer):
-    def SetBatchSize(self, request, context):
-        logging.info("Client requesting to set batch size: %s", request.batch_size)
-        # Convert metrics to numpy array of values only
-        resp = BatchResponse(status="OK")
+    def InitializeModel(self, request, context):
+        logging.info("Client requesting to intialize model")
+        resp = InitializeResponse(status="OK")
+        model_type = request.model_type
+        res = prepareModel(request.job_id, model_type)
+        if res == -1:
+            resp.status = "Error"
+        elif res == -2:
+            resp.status = "No model available"
         return resp
+    
+    def ModelInference(self, request, context):
+        logging.info("Client inference on data")
+        job_id = request.job_id
+        batch_id = request.batch_id
+        inference_size = request.inference_size
+        inference_data_folder = request.inference_data_folder
+
+        print(f"Job Id: {job_id}")
+        print(f"Batch Id: {batch_id}")
+        print(f"Inference size: {inference_size}")
+        print(f"Inference data folder: {inference_data_folder}")
+
+        result = processData(job_id, batch_id, inference_data_folder)
+        result_directory = "/python/result/"
+        print(result)
+        res = json.dumps(result).encode('utf-8')
+        # print(user_encode_data)
+        # resp.inference_result = res
+        resp = InferenceResponse(status="OK", inference_result=res)
+        return resp
+
 
 
 if __name__ == '__main__':
@@ -28,6 +143,9 @@ if __name__ == '__main__':
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
     )
+
+    signal.signal(signal.SIGINT, SigINTHandler)
+
     server = grpc.server(ThreadPoolExecutor())
     add_GoPythonServicer_to_server(GoPythonServer(), server)
     port = 9999
