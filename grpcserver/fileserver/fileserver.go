@@ -11,7 +11,8 @@ import (
 	"regexp"
 	"strconv"
 
-	"cs425mp4/client"
+	"cs425mp4/client_modules/client"
+	"cs425mp4/client_modules/client_model"
 	fileproto "cs425mp4/proto/filetransfer"
 	"cs425mp4/storage"
 	"cs425mp4/utils"
@@ -183,6 +184,7 @@ func (s Server) MasterAskToReplicate(ctx context.Context, req *fileproto.MasterR
 		temp_version := strconv.Itoa(i)
 		err := client.ClientUpload(req.ReplicaAddr, "targets/"+temp_version+"-"+req.Sdfsfilename, temp_version+"-"+req.Sdfsfilename)
 		if err != nil {
+			response.Response = "Error uploading files"
 			return &response, err
 		}
 	}
@@ -194,8 +196,22 @@ func (s Server) StartJob(ctx context.Context, req *fileproto.JobRequest) (*filep
 	response := fileproto.JobResponse{
 		Status: "OK",
 	}
-	client.AskToInitializeModel("localhost:9999", int(req.JobId), int(req.BatchSize), req.ModelType)
-	return &response, nil
+	s.input_channel <- utils.ChannelInMessage{
+		Action:  int(utils.TRAIN),
+		Version: int(req.JobId),
+	}
+
+	out, _ := <-s.output_channel
+
+	var err error
+	for _, member := range out.Replicas {
+		_, err = client_model.AskMemberToInitializeModels(member, int(req.JobId), int(req.BatchSize), req.ModelType)
+		if err != nil {
+			log.Printf("Startjob failed to ask member to initialzie models for member: %v", member)
+			break
+		}
+	}
+	return &response, err
 }
 
 // First download files into a folder, and then starts inferencing
@@ -214,7 +230,7 @@ func (s Server) SendJobInformation(ctx context.Context, req *fileproto.JobInform
 		for _, replica := range replicas {
 			local_file_name := file_prefix + "test/" + file_name
 			log.Printf("Replica: %v\n, filename: %v", replica, file_name)
-			err := client.ClientDownload(replica, "../" + local_file_name, file_name)
+			err := client.ClientDownload(replica, "../"+local_file_name, file_name)
 			if err == nil {
 				break
 			}
@@ -222,7 +238,7 @@ func (s Server) SendJobInformation(ctx context.Context, req *fileproto.JobInform
 	}
 
 	// Tell python to inference and get the result
-	res, err := client.AskToInference("localhost:9999", int(req.JobId), int(req.BatchId), len(file_replicas), file_prefix)
+	res, err := client_model.AskToInference("localhost:9999", int(req.JobId), int(req.BatchId), len(file_replicas), file_prefix)
 	log.Print("Done inferencing")
 	if err != nil {
 		response.Status = "Failed to inference"
@@ -231,4 +247,16 @@ func (s Server) SendJobInformation(ctx context.Context, req *fileproto.JobInform
 	log.Print("Have a result to send back")
 	response.InferenceResult = res
 	return &response, nil
+}
+
+func (s Server) AskMemberToInitializeModels(ctx context.Context, req *fileproto.ModelTrainRequest) (*fileproto.ModelTrainResponse, error) {
+	response := fileproto.ModelTrainResponse{
+		Status: "OK",
+	}
+	_, err := client_model.AskToInitializeModel("localhost:9999", int(req.JobId), int(req.BatchSize), req.ModelType)
+	if err != nil {
+		log.Println("AskMemberToInitializeModels failed to call AskToInitializeModel()")
+		response.Status = "Error"
+	}
+	return &response, err
 }

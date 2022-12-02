@@ -14,8 +14,9 @@ service FileService {
     rpc MasterElectBroadcast(MasterElectRequest) returns (MasterElectResponse){}
     rpc MasterAskToReplicate(MasterReplicateRequest) returns (MasterReplicateResponse){}
 
-    // Ask someone to Initialize
+    // client ask master to initialize models on clusters
     rpc StartJob(JobRequest) returns (JobResponse){}
+    rpc AskMemberToInitializeModels(ModelTrainRequest) returns (ModelTrainResponse) {}
 
     // Tells a VM that these replicas have inferenece files you have
     rpc SendJobInformation(JobInformationRequest) returns (JobInformationResponse){}
@@ -99,4 +100,15 @@ message JobInformationRequest {
 message JobInformationResponse {
     string status = 1;
     bytes inference_result = 2;
+}
+
+
+message ModelTrainRequest {
+    int32 job_id = 1;
+    int32 batch_size = 2;
+    string model_type = 3;
+}
+
+message ModelTrainResponse {
+    string status = 1;
 }

@@ -3,7 +3,8 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"cs425mp4/client"
+	"cs425mp4/client_modules/client"
+	"cs425mp4/client_modules/client_model"
 	"cs425mp4/server"
 	"cs425mp4/utils"
 	"encoding/json"
@@ -13,7 +14,6 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -250,190 +250,233 @@ func main() {
 			node_server.Close()
 			done <- true
 			ticker.Stop()
-		} else if input == "python" {
-			cmd := exec.Command("python3", "python/server.py")
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-
-			go cmd.Run()
-		} else if strings.Split(input, " ")[0] == "train" {
-			size := 10
-			res, err := client.AskToInitializeModel("localhost:9999", 1, size, "image")
-			if err != nil {
-				log.Print("Test: error: ", err)
+		} else if strings.Split(input, " ")[0] == "test" {
+			handleTest(input)
+		} else if strings.Split(input, " ")[0] == "start_job" {
+			// start_job model_type job_id batch_size
+			input_list := strings.Split(input, " ")
+			if len(input_list) != 4 {
+				log.Println("Invalid start_job command [start_job model_type job_id (0 or 1) batch_size]")
 				continue
 			}
-			log.Printf("Response!: %v", res)
-		} else if strings.Split(input, " ")[0] == "start" {
-			// func (c Client) SendJobInformation(ctx context.Context, batch_id int, job_id int, replicas map[string][]string) (string, error) {
-			replicas := make(map[string][]string)
-			replicas["1-image1.jpg"] = []string{"fa22-cs425-7501.cs.illinois.edu:3333"}
-			client.SendInferenceInformation("fa22-cs425-7503.cs.illinois.edu:3333", 1, 0, replicas)
-		} else if strings.Split(input, " ")[0] == "inference" {
-			inference_res, err := client.AskToInference("localhost:9999", 1, 0, 1, "python/data/")
+			model_type := input_list[1]
 
-			if err != nil {
-				log.Panicf("AskToInference fails")
+			if model_type != "image" && model_type != "speech" {
+				log.Println("Invalid model_type (image or speech)")
 				continue
 			}
-			ires := make(map[string][]string)
-			err = json.Unmarshal(inference_res, &ires)
-			for k, v := range ires {
-				log.Printf("%v: %v", k, v)
+
+			job_id := input_list[2]
+			job_id_int, err := strconv.Atoi(job_id)
+			if err != nil || (job_id != "0" && job_id != "1") {
+				log.Println("Invalid job_id (0, 1)")
+				continue
+			}
+
+			batch_size := input_list[3]
+			batch_size_int, err := strconv.Atoi(batch_size)
+			if err != nil {
+				log.Println("Invalid batch_size")
+				continue
+			}
+
+			_, err = client_model.ClientStartJob(MASTER_ADDRESS, job_id_int, batch_size_int, model_type)
+			if err != nil {
+				log.Println("Received error starting job from server")
 			}
 		} else {
 			input_list := strings.Split(input, " ")
 			command := strings.ToLower(input_list[0])
-			switch command {
-			case "put":
-				if len(input_list) != 3 {
-					utils.FormatPrint(fmt.Sprintf("Invalid format of PUT: %v", input_list))
+			handleSDFSCommand(command, input_list)
+		}
+		fmt.Fprintf(os.Stdout, "\n> ")
+	}
+}
+
+func handleTest(input string) {
+	input_list := strings.Split(input, " ")
+	if len(input_list) == 1 {
+		log.Println("Invalid test command [python, train, inference, start]")
+	}
+	command := input_list[1]
+	switch command {
+	case "python":
+		utils.SetupPythonServer()
+	case "train":
+		size := 10
+		res, err := client_model.AskToInitializeModel("localhost:9999", 1, size, "image")
+		if err != nil {
+			log.Print("Test train error: ", err)
+			return
+		}
+		log.Printf("Test Train Response: %v", res)
+	case "inference":
+		inference_res, err := client_model.AskToInference("localhost:9999", 1, 0, 1, "python/data/")
+		if err != nil {
+			log.Println("AskToInference fails")
+			return
+		}
+		ires := make(map[string][]string)
+		err = json.Unmarshal(inference_res, &ires)
+		for k, v := range ires {
+			log.Printf("%v: %v", k, v)
+		}
+	case "start":
+		replicas := make(map[string][]string)
+		replicas["1-image1.jpg"] = []string{"fa22-cs425-7501.cs.illinois.edu:3333"}
+		client_model.SendInferenceInformation("fa22-cs425-7503.cs.illinois.edu:3333", 1, 0, replicas)
+	default:
+		log.Println("Invalid test command [python, train, inference, start]")
+	}
+}
+func handleSDFSCommand(command string, input_list []string) {
+	switch command {
+	case "put":
+		if len(input_list) != 3 {
+			utils.FormatPrint(fmt.Sprintf("Invalid format of PUT: %v", input_list))
+			break
+		}
+		log.Print("\n\nClient started requesting put")
+		localfilename := input_list[1]
+		sdfsfilename := input_list[2]
+		addresses, new_sdfsfilename, err := client.ClientRequest(MASTER_ADDRESS, localfilename, sdfsfilename, utils.PUT)
+		if err != nil {
+			log.Printf("Error Requesting for files: %v", err)
+			break
+		}
+		for _, fileserver_addr := range addresses {
+			target_addr_port := fmt.Sprintf("%s:%v", fileserver_addr, MASTER_PORT_NUMBER)
+			log.Printf("Uploading file %v to node server %v", new_sdfsfilename, target_addr_port)
+			go client.ClientUpload(target_addr_port, localfilename, new_sdfsfilename)
+		}
+		log.Print("\n\nMain put ended requesting")
+	case "get":
+		if len(input_list) != 3 {
+			utils.FormatPrint(fmt.Sprintf("Invalid format of GET: %v", input_list))
+			break
+		}
+		log.Print("\n\nClient started requesting get")
+		localfilename := input_list[2]
+		sdfsfilename := input_list[1]
+		addresses, new_sdfsfilename, err := client.ClientRequest(MASTER_ADDRESS, localfilename, sdfsfilename, utils.GET)
+		if err != nil {
+			log.Printf("Error Requesting for files: %v", err)
+			if len(addresses) == 0 {
+			}
+			break
+		}
+		for i, fileserver_addr := range addresses {
+			target_addr_port := fmt.Sprintf("%s:%v", fileserver_addr, MASTER_PORT_NUMBER)
+			log.Printf("Retrieving file %v from  node server %v", new_sdfsfilename, target_addr_port)
+			err := client.ClientDownload(target_addr_port, localfilename, new_sdfsfilename)
+			if err == nil {
+				break
+			}
+			if i == len(addresses)-1 {
+				utils.FormatPrint("Received no files")
+			}
+		}
+		log.Print("\n\n Main ended requesting get")
+	case "delete":
+		if len(input_list) != 2 {
+			utils.FormatPrint(fmt.Sprintf("Invalid format of DELETE: %v", input_list))
+			break
+		}
+		log.Print("\n\n Client started requesting delete")
+		sdfsfilename := input_list[1]
+		// Replica addresses containing the sdfsfilename
+		addresses, _, err := client.ClientRequest(MASTER_ADDRESS, "", sdfsfilename, utils.DELETE)
+		if err != nil {
+			log.Printf("Error Requesting for files: %v", err)
+			break
+		}
+		// Request delete at each replica address
+		for _, fileserver_addr := range addresses {
+			target_addr_port := fmt.Sprintf("%s:%v", fileserver_addr, MASTER_PORT_NUMBER)
+			log.Printf("Deleting file to node server %v", target_addr_port)
+			client.ClientDelete(target_addr_port, sdfsfilename)
+		}
+		log.Print("\n\n Main ended requesting delete")
+
+	case "ls":
+		if len(input_list) != 2 {
+			utils.FormatPrint(fmt.Sprintf("Invalid format of ls: %v", input_list))
+			break
+		}
+		sdfsfilename := input_list[1]
+		log.Printf("ls %v on Simple Distributed File System", sdfsfilename)
+		addresses, _, _ := client.ClientRequest(MASTER_ADDRESS, "", sdfsfilename, utils.LS)
+
+		fmt.Println(strings.Repeat("=", 80))
+		for _, address := range addresses {
+			fmt.Println("=\t", address)
+		}
+		fmt.Println(strings.Repeat("=", 80) + "\n\n")
+	case "store":
+		fmt.Println("The current processes store the following SDFS files: ", server_files)
+	case "metadata":
+		fmt.Println("\n", strings.Repeat("=", 80))
+		fmt.Println("=\tThe current processes store the following node metadata files: ")
+		for process, files := range node_metadata {
+			fmt.Printf("=\tProcesses %v, has following files: %v\n", process, files)
+		}
+		fmt.Println("=\tThe current processes store the file metadata files: ")
+		for file, meta := range file_metadata {
+			fmt.Printf("=\tFilename: %v, highest version: %v, on replicas: %v,\n", file, meta.Version, meta.Replicas)
+		}
+	case "introducer":
+		utils.FormatPrint(fmt.Sprintf("The current introducer is: %v \n", INTRODUCER_IP))
+	default:
+		// get-version sdfsfilename num-version localfilename
+		if command == "get-versions" {
+			if len(input_list) != 4 {
+				utils.FormatPrint(fmt.Sprintf("Invalid format of get-versions: %v", input_list))
+				break
+			}
+			log.Print("\n\n Client started get-version")
+			sdfsfilename := input_list[1]
+			num_version, err := strconv.Atoi(input_list[2])
+			if err != nil {
+				utils.FormatPrint(fmt.Sprintf("Invalid format of get-versions: %v", input_list))
+				break
+			}
+			localfilename := input_list[3]
+			// Get the replicas that have address
+			replica_addresses, highest_version_str, err := client.ClientRequest(MASTER_ADDRESS, localfilename, sdfsfilename, utils.NUM_VERSION)
+			log.Printf("Replica addresses %v", replica_addresses)
+			log.Printf("Highest versino string: %v", highest_version_str)
+			if err != nil {
+				log.Printf("Could not get-version from Master")
+				break
+			}
+			// Get the highest version of the file
+			highest_version, err := strconv.Atoi(highest_version_str)
+			for i := 0; i < num_version; i += 1 {
+				last_version := highest_version - i
+				// If there are less than the number of versions requested
+				if last_version < 1 {
 					break
 				}
-				log.Print("\n\nClient started requesting put")
-				localfilename := input_list[1]
-				sdfsfilename := input_list[2]
-				addresses, new_sdfsfilename, err := client.ClientRequest(MASTER_ADDRESS, localfilename, sdfsfilename, utils.PUT)
-				if err != nil {
-					log.Printf("Error Requesting for files: %v", err)
-					break
-				}
-				for _, fileserver_addr := range addresses {
+				// Get the last version file on the server
+				versioned_sdfsfilename := strconv.Itoa(last_version) + "-" + sdfsfilename
+				versioned_localfilename := strconv.Itoa(last_version) + "-" + localfilename
+				for i, fileserver_addr := range replica_addresses {
 					target_addr_port := fmt.Sprintf("%s:%v", fileserver_addr, MASTER_PORT_NUMBER)
-					log.Printf("Uploading file %v to node server %v", new_sdfsfilename, target_addr_port)
-					go client.ClientUpload(target_addr_port, localfilename, new_sdfsfilename)
-				}
-				log.Print("\n\nMain put ended requesting")
-			case "get":
-				if len(input_list) != 3 {
-					utils.FormatPrint(fmt.Sprintf("Invalid format of GET: %v", input_list))
-					break
-				}
-				log.Print("\n\nClient started requesting get")
-				localfilename := input_list[2]
-				sdfsfilename := input_list[1]
-				addresses, new_sdfsfilename, err := client.ClientRequest(MASTER_ADDRESS, localfilename, sdfsfilename, utils.GET)
-				if err != nil {
-					log.Printf("Error Requesting for files: %v", err)
-					if len(addresses) == 0 {
-					}
-					break
-				}
-				for i, fileserver_addr := range addresses {
-					target_addr_port := fmt.Sprintf("%s:%v", fileserver_addr, MASTER_PORT_NUMBER)
-					log.Printf("Retrieving file %v from  node server %v", new_sdfsfilename, target_addr_port)
-					err := client.ClientDownload(target_addr_port, localfilename, new_sdfsfilename)
+					log.Printf("Trying to download %v as %v from %v", versioned_sdfsfilename, versioned_localfilename, target_addr_port)
+					log.Printf("Retrieving file %v with version %v from node server %v", versioned_sdfsfilename, last_version, target_addr_port)
+					err := client.ClientDownload(target_addr_port, versioned_localfilename, versioned_sdfsfilename)
 					if err == nil {
 						break
 					}
-					if i == len(addresses)-1 {
-						utils.FormatPrint("Received no files")
+					if i == len(replica_addresses)-1 {
+						log.Printf("Received no files")
 					}
-				}
-				log.Print("\n\n Main ended requesting get")
-			case "delete":
-				if len(input_list) != 2 {
-					utils.FormatPrint(fmt.Sprintf("Invalid format of DELETE: %v", input_list))
-					break
-				}
-				log.Print("\n\n Client started requesting delete")
-				sdfsfilename := input_list[1]
-				// Replica addresses containing the sdfsfilename
-				addresses, _, err := client.ClientRequest(MASTER_ADDRESS, "", sdfsfilename, utils.DELETE)
-				if err != nil {
-					log.Printf("Error Requesting for files: %v", err)
-					break
-				}
-				// Request delete at each replica address
-				for _, fileserver_addr := range addresses {
-					target_addr_port := fmt.Sprintf("%s:%v", fileserver_addr, MASTER_PORT_NUMBER)
-					log.Printf("Deleting file to node server %v", target_addr_port)
-					client.ClientDelete(target_addr_port, sdfsfilename)
-				}
-				log.Print("\n\n Main ended requesting delete")
-
-			case "ls":
-				if len(input_list) != 2 {
-					utils.FormatPrint(fmt.Sprintf("Invalid format of ls: %v", input_list))
-					break
-				}
-				sdfsfilename := input_list[1]
-				log.Printf("ls %v on Simple Distributed File System", sdfsfilename)
-				addresses, _, _ := client.ClientRequest(MASTER_ADDRESS, "", sdfsfilename, utils.LS)
-
-				fmt.Println(strings.Repeat("=", 80))
-				for _, address := range addresses {
-					fmt.Println("=\t", address)
-				}
-				fmt.Println(strings.Repeat("=", 80) + "\n\n")
-			case "store":
-				fmt.Println("The current processes store the following SDFS files: ", server_files)
-			case "metadata":
-				fmt.Println("\n", strings.Repeat("=", 80))
-				fmt.Println("=\tThe current processes store the following node metadata files: ")
-				for process, files := range node_metadata {
-					fmt.Printf("=\tProcesses %v, has following files: %v\n", process, files)
-				}
-				fmt.Println("=\tThe current processes store the file metadata files: ")
-				for file, meta := range file_metadata {
-					fmt.Printf("=\tFilename: %v, highest version: %v, on replicas: %v,\n", file, meta.Version, meta.Replicas)
-				}
-			case "introducer":
-				utils.FormatPrint(fmt.Sprintf("The current introducer is: %v \n", INTRODUCER_IP))
-			default:
-				// get-version sdfsfilename num-version localfilename
-				if command == "get-versions" {
-					if len(input_list) != 4 {
-						utils.FormatPrint(fmt.Sprintf("Invalid format of get-versions: %v", input_list))
-						break
-					}
-					log.Print("\n\n Client started get-version")
-					sdfsfilename := input_list[1]
-					num_version, err := strconv.Atoi(input_list[2])
-					if err != nil {
-						utils.FormatPrint(fmt.Sprintf("Invalid format of get-versions: %v", input_list))
-						break
-					}
-					localfilename := input_list[3]
-					// Get the replicas that have address
-					replica_addresses, highest_version_str, err := client.ClientRequest(MASTER_ADDRESS, localfilename, sdfsfilename, utils.NUM_VERSION)
-					log.Printf("Replica addresses %v", replica_addresses)
-					log.Printf("Highest versino string: %v", highest_version_str)
-					if err != nil {
-						log.Printf("Could not get-version from Master")
-						break
-					}
-					// Get the highest version of the file
-					highest_version, err := strconv.Atoi(highest_version_str)
-					for i := 0; i < num_version; i += 1 {
-						last_version := highest_version - i
-						// If there are less than the number of versions requested
-						if last_version < 1 {
-							break
-						}
-						// Get the last version file on the server
-						versioned_sdfsfilename := strconv.Itoa(last_version) + "-" + sdfsfilename
-						versioned_localfilename := strconv.Itoa(last_version) + "-" + localfilename
-						for i, fileserver_addr := range replica_addresses {
-							target_addr_port := fmt.Sprintf("%s:%v", fileserver_addr, MASTER_PORT_NUMBER)
-							log.Printf("Trying to download %v as %v from %v", versioned_sdfsfilename, versioned_localfilename, target_addr_port)
-							log.Printf("Retrieving file %v with version %v from node server %v", versioned_sdfsfilename, last_version, target_addr_port)
-							err := client.ClientDownload(target_addr_port, versioned_localfilename, versioned_sdfsfilename)
-							if err == nil {
-								break
-							}
-							if i == len(replica_addresses)-1 {
-								log.Printf("Received no files")
-							}
-						}
-					}
-					log.Print("\n\n Client ended get-version")
-				} else {
-					fmt.Printf("Invalid command %v\n", input_list)
 				}
 			}
+			log.Print("\n\n Client ended get-version")
+		} else {
+			fmt.Printf("Invalid command %v\n", input_list)
 		}
-		fmt.Fprintf(os.Stdout, "\n> ")
 	}
 }
 
@@ -1150,6 +1193,18 @@ func MasterServer() {
 						Replicas: []string{""},
 						Version:  -1}
 				}
+			} else if client_order.Action == utils.TRAIN {
+				// Requested by Client to initialize train
+				membership_mutex.Lock()
+				mem_list, _ := GetMembershipList()
+				membership_mutex.Unlock()
+				for i := range mem_list {
+					mem_list[i] = ExtractIPFromID(mem_list[i])
+				}
+				MasterOutgoingChannel <- utils.ChannelOutMessage{
+					Action:   utils.TRAIN,
+					Replicas: mem_list,
+					Version:  -1}
 			}
 			/* MasterFailChannel is filled after the failed_process is deleted*/
 		case failed_process := <-MasterFailChannel:

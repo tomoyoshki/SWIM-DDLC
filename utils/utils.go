@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"strings"
 )
 
@@ -15,8 +16,16 @@ const (
 	STORE       = 4
 	NUM_VERSION = 5
 	ALLOCATE    = 6
+	TRAIN       = 7
 )
 
+func SetupPythonServer() {
+	cmd := exec.Command("python3", "python/server.py")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	go cmd.Run()
+}
 func RemoveFromList(list []string, target string) []string {
 	for i, other := range list {
 		if other == target {

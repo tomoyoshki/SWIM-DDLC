@@ -178,15 +178,17 @@ func (c Client) MasterAskToReplicate(ctx context.Context, replica_addr string, s
 }
 
 // Ask the machine to train their models
-func (c Client) StartJob(ctx context.Context, batch_size int, model_type string) (string, error) {
+func (c Client) StartJob(ctx context.Context, job_id int, batch_size int, model_type string) (string, error) {
 	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
 	defer cancel()
 	res, err := c.client.StartJob(ctx, &fileproto.JobRequest{
+		JobId:     int32(job_id),
 		BatchSize: int32(batch_size),
 		ModelType: model_type,
 	})
 	if err != nil {
 		log.Printf("Startjob() error: %v", err)
+		return "", err
 	}
 	// log.Printf("Startjob result: %v", res.Status)
 	return res.Status, err
@@ -214,5 +216,22 @@ func (c Client) SendJobInformation(ctx context.Context, batch_id int, job_id int
 	for k, v := range ires {
 		log.Printf("%v: %v", k, v)
 	}
+	return res.Status, nil
+}
+
+func (c Client) AskMemberToInitializeModels(ctx context.Context, job_id int, batch_size int, model_type string) (string, error) {
+	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
+	defer cancel()
+	res, err := c.client.AskMemberToInitializeModels(ctx, &fileproto.ModelTrainRequest{
+		JobId:     int32(job_id),
+		BatchSize: int32(batch_size),
+		ModelType: model_type,
+	})
+
+	if err != nil {
+		log.Printf("AskMemberToInitializeModels() fails")
+		return "", err
+	}
+
 	return res.Status, nil
 }
