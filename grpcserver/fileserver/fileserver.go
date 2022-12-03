@@ -322,7 +322,6 @@ func (s Server) PrintStatus(ctx context.Context, req *fileproto.PrintStatusReque
 		JobID:  int(req.JobId),
 	}
 	out, _ := <-s.scheduler_out_channel
-	utils.PrintJob(out.JobInfo)
 	buf := &bytes.Buffer{}
 	gob.NewEncoder(buf).Encode(out.JobInfo)
 	bs := buf.Bytes()

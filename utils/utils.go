@@ -180,8 +180,8 @@ func PrintJob(job JobStatus) {
 	fmt.Println("=\tModel name: ", job.ModelName)
 	fmt.Println("=\tRemaining files: ", len(job.TaskQueues))
 	fmt.Println("=\tVMs assigned to this job")
-	for process, file := range job.ProcessTestFiles {
-		fmt.Printf("=\t\t%v: %v", process, file)
+	for process, _ := range job.ProcessTestFiles {
+		fmt.Printf("=\t\t%v\n", process)
 	}
 	fmt.Println(strings.Repeat("=", 80))
 }

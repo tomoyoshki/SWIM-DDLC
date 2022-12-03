@@ -299,8 +299,8 @@ func (c Client) RequestJobStatus(ctx context.Context, job_id int) (string, error
 		return "PrintStatus returned error", err
 	}
 
-	var results map[int]utils.JobStatus
+	var results utils.JobStatus
 	gob.NewDecoder(bytes.NewReader(res.Info)).Decode(&results)
-	utils.PrintJobInfo(results)
+	utils.PrintJob(results)
 	return "OK", nil
 }
