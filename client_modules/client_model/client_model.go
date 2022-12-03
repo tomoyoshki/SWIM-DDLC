@@ -65,6 +65,7 @@ func ClientRemoveModel(addr string, job_id int) (string, error) {
 
 // Server send job information for member to request files to download
 func SendInferenceInformation(addr string, job_id int, batch_id int, file_replicas map[string][]string) string {
+	log.Printf("Sending Inference task to addr: %v", addr)
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Printf("SendInferenceInformation() did not connect: %v", err)
@@ -73,7 +74,7 @@ func SendInferenceInformation(addr string, job_id int, batch_id int, file_replic
 	defer conn.Close()
 	client := fileclient.NewClient(conn, nil)
 	res_status, err := client.SendJobInformation(context.Background(), batch_id, job_id, file_replicas)
-	if res_status != "OK" {
+	if err != nil && res_status != "OK" {
 		log.Printf("SendInferenceInformation() failed")
 		return "Send Information Failed Failed"
 	}
