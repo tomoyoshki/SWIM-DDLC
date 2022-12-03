@@ -17,6 +17,9 @@ service FileService {
     // client ask master to initialize models on clusters
     rpc StartJob(JobRequest) returns (JobResponse){}
 
+    // client ask master to start inferencing on model
+    rpc StartInference(JobRequest) returns (JobResponse){}
+
     // Master asks each member to intialize their models
     rpc AskMemberToInitializeModels(ModelTrainRequest) returns (ModelTrainResponse) {}
 

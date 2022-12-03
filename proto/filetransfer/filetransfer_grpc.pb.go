@@ -30,6 +30,8 @@ type FileServiceClient interface {
 	MasterAskToReplicate(ctx context.Context, in *MasterReplicateRequest, opts ...grpc.CallOption) (*MasterReplicateResponse, error)
 	// client ask master to initialize models on clusters
 	StartJob(ctx context.Context, in *JobRequest, opts ...grpc.CallOption) (*JobResponse, error)
+	// client ask master to start inferencing on model
+	StartInference(ctx context.Context, in *JobRequest, opts ...grpc.CallOption) (*JobResponse, error)
 	// Master asks each member to intialize their models
 	AskMemberToInitializeModels(ctx context.Context, in *ModelTrainRequest, opts ...grpc.CallOption) (*ModelTrainResponse, error)
 	// Master asks each member to remove their models
@@ -157,6 +159,15 @@ func (c *fileServiceClient) StartJob(ctx context.Context, in *JobRequest, opts .
 	return out, nil
 }
 
+func (c *fileServiceClient) StartInference(ctx context.Context, in *JobRequest, opts ...grpc.CallOption) (*JobResponse, error) {
+	out := new(JobResponse)
+	err := c.cc.Invoke(ctx, "/filetransfer.FileService/StartInference", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *fileServiceClient) AskMemberToInitializeModels(ctx context.Context, in *ModelTrainRequest, opts ...grpc.CallOption) (*ModelTrainResponse, error) {
 	out := new(ModelTrainResponse)
 	err := c.cc.Invoke(ctx, "/filetransfer.FileService/AskMemberToInitializeModels", in, out, opts...)
@@ -196,6 +207,8 @@ type FileServiceServer interface {
 	MasterAskToReplicate(context.Context, *MasterReplicateRequest) (*MasterReplicateResponse, error)
 	// client ask master to initialize models on clusters
 	StartJob(context.Context, *JobRequest) (*JobResponse, error)
+	// client ask master to start inferencing on model
+	StartInference(context.Context, *JobRequest) (*JobResponse, error)
 	// Master asks each member to intialize their models
 	AskMemberToInitializeModels(context.Context, *ModelTrainRequest) (*ModelTrainResponse, error)
 	// Master asks each member to remove their models
@@ -229,6 +242,9 @@ func (UnimplementedFileServiceServer) MasterAskToReplicate(context.Context, *Mas
 }
 func (UnimplementedFileServiceServer) StartJob(context.Context, *JobRequest) (*JobResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartJob not implemented")
+}
+func (UnimplementedFileServiceServer) StartInference(context.Context, *JobRequest) (*JobResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StartInference not implemented")
 }
 func (UnimplementedFileServiceServer) AskMemberToInitializeModels(context.Context, *ModelTrainRequest) (*ModelTrainResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AskMemberToInitializeModels not implemented")
@@ -389,6 +405,24 @@ func _FileService_StartJob_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FileService_StartInference_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(JobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FileServiceServer).StartInference(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/filetransfer.FileService/StartInference",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FileServiceServer).StartInference(ctx, req.(*JobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _FileService_AskMemberToInitializeModels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ModelTrainRequest)
 	if err := dec(in); err != nil {
@@ -469,6 +503,10 @@ var FileService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StartJob",
 			Handler:    _FileService_StartJob_Handler,
+		},
+		{
+			MethodName: "StartInference",
+			Handler:    _FileService_StartInference_Handler,
 		},
 		{
 			MethodName: "AskMemberToInitializeModels",

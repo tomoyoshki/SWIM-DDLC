@@ -201,7 +201,7 @@ func (s Server) MasterAskToReplicate(ctx context.Context, req *fileproto.MasterR
 	return &response, err
 }
 
-// The node containing the file [req.Sdfsfilename] is sending it to some replica process [req.ReplicaAddr]
+// client request server to initialize Jobs
 func (s Server) StartJob(ctx context.Context, req *fileproto.JobRequest) (*fileproto.JobResponse, error) {
 	response := fileproto.JobResponse{
 		Status: "OK",
@@ -224,6 +224,18 @@ func (s Server) StartJob(ctx context.Context, req *fileproto.JobRequest) (*filep
 		}
 	}
 	return &response, err
+}
+
+// client request server to start inferencing
+func (s Server) StartInference(ctx context.Context, req *fileproto.JobRequest) (*fileproto.JobResponse, error) {
+	response := fileproto.JobResponse{
+		Status: "OK",
+	}
+	s.scheduler_in_channel <- utils.MLMessage{
+		Action: int(utils.INFERENCE),
+		JobID:  int(req.JobId),
+	}
+	return &response, nil
 }
 
 // First download files into a folder, and then starts inferencing
