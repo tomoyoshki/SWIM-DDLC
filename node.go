@@ -78,6 +78,9 @@ var node_metadata = make(map[string][]string)
 
 var server_files = []string{}
 
+// There are two jobs
+var jobs_info = make([]utils.JobInfo, 2)
+
 type Packet struct {
 	Packet_Senderid  string   // ID of the sender
 	Packet_Type      string   // PING ACK BYE JOIN FAILURE
@@ -129,13 +132,16 @@ type TrainTask struct {
 }
 
 type JobStatus struct {
-	job_id                  string
+	job_id                  int                 // Id of the job
+	batch_size              int                 // Batch size
+	num_workers             int                 // Number of workers doing this job
 	each_process_total_task int                 // Total test files in this job / num_workers
+	query_rate              float32             // Query rate
+	model_type              string              // Current job's model type
+	model_name              string              // Current job's model name
 	process_allocation      map[string]int      // Maps process to which i-th N/10 (assume num_workers = 10)
 	process_batch_progress  map[string]int      // Maps process to its current batch number in the job (which batch in each N/10)
 	process_test_files      map[string][]string // Maps process to its assigned test files (of length each_process_total_task)
-	num_workers             int                 // Number of workers doing this job
-	batch_size              int
 }
 
 var test_dir = []string{"test_data/images"}
@@ -170,9 +176,22 @@ func main() {
 	SetupFiles()
 	defer log_file.Close()
 
+	for i, val := range jobs_info {
+		val.Exist = true
+		fmt.Println(jobs_info[i].Exist)
+		jobs_info[i].Exist = true
+	}
+
+	for i := range jobs_info {
+		fmt.Println(jobs_info[i].Exist)
+	}
+
 	// Constantly reading user inputs for instructions
 	scanner := bufio.NewScanner(os.Stdin)
 	fmt.Fprintf(os.Stdout, "> ")
+
+	utils.SetupPythonServer()
+
 	for scanner.Scan() {
 		input := scanner.Text()
 		input_list := strings.Split(input, " ")
@@ -386,6 +405,7 @@ func handleSDFSCommand(command string, input_list []string) {
 func handleMLCommand(input string, input_list []string) {
 	switch input {
 	case "load_test_dataset":
+		// Put local dataset tup
 		go load_test_set()
 		break
 	case "start_job":

@@ -85,6 +85,19 @@ type NodeMetaData struct {
 	Node string
 }
 
+type JobStatus struct {
+	job_id                  int                 // Id of the job
+	batch_size              int                 // Batch size
+	num_workers             int                 // Number of workers doing this job
+	each_process_total_task int                 // Total test files in this job / num_workers
+	query_rate              float32             // Query rate
+	model_type              string              // Current job's model type
+	model_name              string              // Current job's model name
+	process_allocation      map[string]int      // Maps process to which i-th N/10 (assume num_workers = 10)
+	process_batch_progress  map[string]int      // Maps process to its current batch number in the job (which batch in each N/10)
+	process_test_files      map[string][]string // Maps process to its assigned test files (of length each_process_total_task)
+}
+
 func CreateFileDirectory(filepath string) {
 	target_filename_array := strings.Split(filepath, "/")
 	target_file_directory := strings.Join(target_filename_array[0:len(target_filename_array)-1], "/")
@@ -135,4 +148,24 @@ func LogError(err error, message string, exit bool) {
 			os.Exit(1)
 		}
 	}
+}
+
+func PrintJobInfo(jobs_info []JobStatus) {
+	for _, job := range jobs_info {
+		PrintJob(job)
+	}
+}
+func PrintJob(job JobStatus) {
+	fmt.Print("Printing job info\n")
+	fmt.Println(strings.Repeat("=", 80))
+	fmt.Println("=\tJob Id: ", job.job_id)
+	fmt.Println("=\tCurrent Batch size: ", job.batch_size)
+	fmt.Println("=\tQuery rate: ", job.query_rate)
+	fmt.Println("=\tModel type: ", job.model_type)
+	fmt.Println("=\tModel name: ", job.model_name)
+	fmt.Println("=\tCurrent VM assigned")
+	for i, vm := range job.AssignedVM {
+		fmt.Println("=\t\t", i, ": ", vm)
+	}
+	fmt.Println(strings.Repeat("=", 80))
 }

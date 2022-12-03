@@ -179,9 +179,12 @@ class GoPythonServer(GoPythonServicer):
 
 if __name__ == '__main__':
     logging.basicConfig(
+        filename="/log/python_log.log",
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
     )
+
+    logging.basicConfig(filename='example.log', encoding='utf-8', level=logging.DEBUG)
 
     signal.signal(signal.SIGINT, SigINTHandler)
 

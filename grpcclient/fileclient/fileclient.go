@@ -38,7 +38,7 @@ func (c Client) Upload(ctx context.Context, localfilename string, sdfsfilename s
 
 	stream, err := c.client.Upload(ctx)
 	if err != nil {
-		return "", err
+		return "c.client.Upload(ctx)", err
 	}
 
 	fil, err := os.Open(localfilename)
@@ -48,8 +48,6 @@ func (c Client) Upload(ctx context.Context, localfilename string, sdfsfilename s
 
 	// Maximum 128MB size per stream.
 	buf := make([]byte, 11*1024*1024)
-
-	log.Printf("fileclient.go:Upload():Sending file %v to server as %v", localfilename, sdfsfilename)
 	total := 0
 	for {
 		num, err := fil.Read(buf)
@@ -76,7 +74,6 @@ func (c Client) Upload(ctx context.Context, localfilename string, sdfsfilename s
 	if err != nil {
 		return "", err
 	}
-	log.Printf("Upload status: %v", res.GetStatus())
 	return res.GetStatus(), nil
 }
 

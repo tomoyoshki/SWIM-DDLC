@@ -19,7 +19,6 @@ const (
 
 // Called by a client trying to PUT a file [localfilename] as [sdfsfilename] to any process [addr]
 func ClientUpload(addr string, localfilename string, sdfsfilename string) error {
-	log.Println("client.go:ClientUpload(): uploading to addr: ", addr)
 	// conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	maxMsgSize := 12 * 1024 * 1024
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxMsgSize), grpc.MaxCallSendMsgSize(maxMsgSize)))
@@ -32,11 +31,9 @@ func ClientUpload(addr string, localfilename string, sdfsfilename string) error 
 	client := fileclient.NewClient(conn, nil)
 	_, err = client.Upload(context.Background(), localfilename, sdfsfilename)
 	if err != nil {
-		log.Printf("ClientUpload(): Could not upload: %v", err)
+		log.Printf("ClientUpload() could not upload to address %v with error: %v", addr, err)
 		return err
 	}
-	log.Print("\nClientUpload() ended.\n")
-
 	return nil
 }
 
