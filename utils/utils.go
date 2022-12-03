@@ -107,6 +107,7 @@ type JobStatus struct {
 	process_allocation      map[string]int      // Maps process to which i-th N/10 (assume num_workers = 10)
 	process_batch_progress  map[string]int      // Maps process to its current batch number in the job (which batch in each N/10)
 	process_test_files      map[string][]string // Maps process to its assigned test files (of length each_process_total_task)
+	task_queues             []string
 }
 
 func CreateFileDirectory(filepath string) {
