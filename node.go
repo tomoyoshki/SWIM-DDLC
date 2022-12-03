@@ -988,7 +988,6 @@ func RoundRobin(process string) {
 			batch_size := job_status[current_job].BatchSize
 			current_batch_files := []string{}
 
-			current_job_status.TaskLock.Lock()
 			queue := current_job_status.TaskQueues
 			if len(queue) == 0 {
 				/* No more tasks to do for this job. Done! */
