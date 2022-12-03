@@ -162,13 +162,15 @@ class GoPythonServer(GoPythonServicer):
         inference_data_folder = request.inference_data_folder
         result = processData(job_id, batch_id, inference_data_folder)
 
+        print(result)
 
-        result_directory = f"./python/result/{job_id}/{batch_id}/"
-        os.makedirs(result_directory)
 
-        with open(result_directory + "result.txt", "w") as f:
-            for line in result:
-                f.write("%s\n" % line)
+        # result_directory = f"./python/result/{job_id}/{batch_id}/"
+        # os.makedirs(result_directory)
+
+        # with open(result_directory + "result.txt", "w") as f:
+        #     for line in result:
+        #         f.write("%s\n" % line)
 
         res = json.dumps(result).encode('utf-8')
         resp = InferenceResponse(status="OK", inference_result=res)
@@ -178,6 +180,10 @@ class GoPythonServer(GoPythonServicer):
 
 if __name__ == '__main__':
     os.remove("./python_log.log")
+    os.remove("./python/data")
+    shutil.rmtree("./python/data")
+    shutil.rmtree("./python/result")
+    shutil.rmtree("./python/results")
     logging.basicConfig(
         filename="./python_log.log",
         level=logging.INFO,
