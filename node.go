@@ -156,12 +156,12 @@ func load_test_set() {
 			for _, fileserver_addr := range addresses {
 				target_addr_port := fmt.Sprintf("%s:%v", fileserver_addr, MASTER_PORT_NUMBER)
 				go client.ClientUpload(target_addr_port, localfilename, new_sdfsfilename)
-				count += 1
 			}
+			count += 1
 		}
 		dir_test_files_map[directory] = all_files
 	}
-	utils.FormatPrint(fmt.Sprintf("Finished loading test dataset\n\tLoaded %v data in total", count))
+	utils.FormatPrint(fmt.Sprintf("Finished loading test dataset\n=\tLoaded %v data in total", count))
 }
 
 func main() {
@@ -560,6 +560,7 @@ func IntroduceIntroducer() {
 		// Get UDP address of the processes
 		potential_process_udp_addr, err := net.ResolveUDPAddr("udp", addr+":"+strconv.Itoa(PORT_NUMBER))
 		utils.LogError(err, "Unable to resolve UDP Address: ", false)
+
 		// Dial each process
 		introduce_request, err := net.DialUDP("udp", nil, potential_process_udp_addr)
 		if err != nil {
@@ -568,18 +569,21 @@ func IntroduceIntroducer() {
 		}
 		// Create packet to send INTRODUCE request
 		packet_to_send := Packet{this_id, utils.INTRODUCE, membership_list}
+
 		// Convert to UDP sendable format
 		packet, err := ConvertToSend(packet_to_send)
 		utils.LogError(err, "Unable to convert the struct to udp message: ", false)
+
 		// Ask each end point to send membership list back
 		_, err = introduce_request.Write(packet)
-		utils.LogError(err, "Unable to send the packetfalse", false)
+		utils.LogError(err, "Unable to send the packet false", false)
+
 		// Set time out
 		introduce_request.SetDeadline(time.Now().Add(time.Millisecond))
 		response_buffer := make([]byte, 1024)
 		_, _, err = introduce_request.ReadFromUDP(response_buffer)
 		if err != nil {
-			log.Println("Unable to receive response from the server: ", err)
+			// log.Println("Unable to receive response from the server: ", err)
 			// timeout, go to next server
 			continue
 		}
@@ -652,11 +656,11 @@ func WhoIsIntroducer() string {
 		_, err = introduce_request.Write(packet)
 		utils.LogError(err, "Unable to send the packetfalse", false)
 		// Set time out
-		introduce_request.SetDeadline(time.Now().Add(time.Second))
+		introduce_request.SetDeadline(time.Now().Add(500 * time.Millisecond))
 		response_buffer := make([]byte, 1024)
 		_, _, err = introduce_request.ReadFromUDP(response_buffer)
 		if err != nil {
-			log.Println("Unable to receive response from the server: ", err)
+			// log.Println("Unable to receive response from the server: ", err)
 			// timeout, go to next server
 			continue
 		}
@@ -985,14 +989,13 @@ func RoundRobin(process string) {
 		} else if current_number_of_jobs == 1 {
 			// Just one job.
 			current_job := process_current_job[process]
-			log.Printf("On process %v: Job %v", process, current_job)
 			job_status[current_job].TaskLock.Lock()
 			current_job_status := job_status[current_job]
 			batch_size := job_status[current_job].BatchSize
 			current_batch_files := []string{}
 
 			queue := current_job_status.TaskQueues
-			log.Printf("On process %v: Job %v, queue is %v", process, current_job, queue)
+			log.Printf("On process %v: Job %v, number of job in the queue: %v", process, current_job, len(queue))
 			if len(queue) == 0 {
 				/* No more tasks to do for this job. Done! */
 				job_status[current_job].TaskLock.Unlock()
@@ -1014,7 +1017,7 @@ func RoundRobin(process string) {
 			job_status[current_job] = current_job_status
 			job_status[current_job].TaskLock.Unlock()
 
-			log.Printf("Current batch files: %v", current_batch_files)
+			// log.Printf("Current batch files: %v", current_batch_files)
 			// Map of current batch file's metadata
 			files_replicas := make(map[string][]string)
 			// For each file in the batch, send it through channel.
@@ -1024,6 +1027,7 @@ func RoundRobin(process string) {
 			}
 			// TODO: Call askToReplicate and pass in files_replicas
 			current_batch := job_status[current_job].ProcessBatchProgress[process]
+			log.Printf("Sending batch of size %v to process %v", len(files_replicas), process)
 			client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas)
 
 			// Update process batch progress

@@ -143,8 +143,6 @@ func (s Server) Delete(ctx context.Context, req *fileproto.DeleteRequest) (*file
 
 func (s Server) MasterRequest(ctx context.Context, req *fileproto.MasterNodeRequest) (*fileproto.MasterNodeResponse, error) {
 	action := req.Action
-	log.Print("Received request")
-
 	s.input_channel <- utils.ChannelInMessage{
 		Action:    int(action),
 		Localfile: req.Localfilename,
@@ -273,7 +271,6 @@ func (s Server) SendJobInformation(ctx context.Context, req *fileproto.JobInform
 	for file_name, replicas := range file_replicas {
 		for _, replica := range replicas {
 			local_file_name := file_prefix + "test/" + file_name
-			log.Printf("Replica: %v\n, filename: %v", replica, file_name)
 			err := client.ClientDownload(replica+":3333", "../"+local_file_name, "1-"+file_name)
 			if err == nil {
 				break
