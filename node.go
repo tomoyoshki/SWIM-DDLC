@@ -138,6 +138,7 @@ var test_dir = []string{"test_data/images"}
 // This function will load all test data to the SDFS at the beginning.
 func load_test_set() {
 	utils.FormatPrint("Loading test dataset")
+	count := 0
 	for _, directory := range test_dir {
 		all_files := []string{}
 		// Loop through each test file under current dir:
@@ -154,13 +155,13 @@ func load_test_set() {
 			}
 			for _, fileserver_addr := range addresses {
 				target_addr_port := fmt.Sprintf("%s:%v", fileserver_addr, MASTER_PORT_NUMBER)
-				log.Printf("Uploading file %v to node server %v", new_sdfsfilename, target_addr_port)
 				go client.ClientUpload(target_addr_port, localfilename, new_sdfsfilename)
+				count += 1
 			}
 		}
 		dir_test_files_map[directory] = all_files
 	}
-	utils.FormatPrint("Finished loading test dataset")
+	utils.FormatPrint(fmt.Sprintf("Finished loading test dataset\n\tLoaded %v data in total", count))
 }
 
 func main() {
@@ -274,7 +275,6 @@ func handleTest(input string, input_list []string) {
 }
 
 func handleSDFSCommand(command string, input_list []string) {
-	log.Println("Command")
 	switch command {
 	case "put":
 		if len(input_list) != 3 {
@@ -291,7 +291,6 @@ func handleSDFSCommand(command string, input_list []string) {
 		}
 		for _, fileserver_addr := range addresses {
 			target_addr_port := fmt.Sprintf("%s:%v", fileserver_addr, MASTER_PORT_NUMBER)
-			log.Printf("Uploading file %v to node server %v", new_sdfsfilename, target_addr_port)
 			go client.ClientUpload(target_addr_port, localfilename, new_sdfsfilename)
 		}
 		log.Print("\n\nMain put ended requesting")
@@ -1147,7 +1146,6 @@ func MasterServer() {
 		select {
 		// Receive from Filesystem Server
 		case client_order := <-MasterIncommingChannel:
-			log.Print("Something: ", client_order)
 			if client_order.Action == utils.PUT {
 				filename := client_order.Sdfsfile
 				if file, ok := file_metadata[filename]; ok {
@@ -1169,7 +1167,7 @@ func MasterServer() {
 					for _, v := range replicas {
 						node_metadata[v] = append(node_metadata[v], filename)
 					}
-					log.Printf("From Master Node: The file %v is sent to : %v", filename, replicas)
+					// log.Printf("From Master Node: The file %v is sent to : %v", filename, replicas)
 					// Reply
 					MasterOutgoingChannel <- utils.ChannelOutMessage{
 						Action:   FS_PUT,
@@ -1237,7 +1235,7 @@ func MasterServer() {
 				1. From server (received others' failure message).
 				2. fro client's ping (itself detected other's failure.
 			*/
-			log.Print("\n\n" + strings.Repeat("=", 80) + "Received failed process" + "\n" + strings.Repeat("=", 80))
+			// log.Print("\n\n" + strings.Repeat("=", 80) + "\nReceived failed process" + "\n" + strings.Repeat("=", 80))
 			failed_process = strings.Split(failed_process, "_")[0]
 			log.Printf("Process %v failed", failed_process)
 			if files, ok := node_metadata[failed_process]; ok {
