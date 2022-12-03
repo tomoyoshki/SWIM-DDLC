@@ -75,6 +75,15 @@ type ChannelOutMessage struct {
 	Version  int
 }
 
+type MLMessage struct {
+	Action         int
+	JobID          int
+	BatchSize      int
+	ModelType      string
+	ModelName      string
+	MembershipList []string
+}
+
 /* This represents a metadata for a file; */
 type FileMetaData struct {
 	Version  int

@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func Server(port int, input_channel chan utils.ChannelInMessage, output_channel chan utils.ChannelOutMessage, done chan bool, new_introducer_channel chan string, fileinfo *[]string) {
+func Server(port int, input_channel chan utils.ChannelInMessage, output_channel chan utils.ChannelOutMessage, done chan bool, new_introducer_channel chan string, SchedulerMLChannel chan utils.MLMessage, fileinfo *[]string) {
 	log.Printf("Started listening at port: %v", port)
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
@@ -22,7 +22,7 @@ func Server(port int, input_channel chan utils.ChannelInMessage, output_channel 
 	defer lis.Close()
 
 	// Bootstrap upload server.
-	uplSrv := fileserver.NewServer(storage.New("./targets/"), input_channel, output_channel, new_introducer_channel, fileinfo)
+	uplSrv := fileserver.NewServer(storage.New("./targets/"), input_channel, output_channel, new_introducer_channel, SchedulerMLChannel, fileinfo)
 
 	maxMsgSize := 12 * 1024 * 1024
 	// Bootstrap gRPC server.

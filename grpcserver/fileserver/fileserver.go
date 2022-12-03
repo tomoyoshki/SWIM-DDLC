@@ -28,17 +28,19 @@ var (
 type Server struct {
 	input_channel          chan utils.ChannelInMessage
 	output_channel         chan utils.ChannelOutMessage
+	scheduler_channel      chan utils.MLMessage
 	new_introducer_channel chan string
 	serverfileinfo         *[]string
 	storage                storage.Manager
 	fileproto.UnimplementedFileServiceServer
 }
 
-func NewServer(storage storage.Manager, input_channel chan utils.ChannelInMessage, output_channel chan utils.ChannelOutMessage, new_introducer_channel chan string, serverfileinfo *[]string) Server {
+func NewServer(storage storage.Manager, input_channel chan utils.ChannelInMessage, output_channel chan utils.ChannelOutMessage, new_introducer_channel chan string, SchedulerMLChannel chan utils.MLMessage, serverfileinfo *[]string) Server {
 	log.Print("Creating new Server storage")
 	return Server{
 		input_channel:          input_channel,
 		output_channel:         output_channel,
+		scheduler_channel:      SchedulerMLChannel,
 		new_introducer_channel: new_introducer_channel,
 		serverfileinfo:         serverfileinfo,
 		storage:                storage,
@@ -196,15 +198,17 @@ func (s Server) StartJob(ctx context.Context, req *fileproto.JobRequest) (*filep
 	response := fileproto.JobResponse{
 		Status: "OK",
 	}
-	s.input_channel <- utils.ChannelInMessage{
-		Action:  int(utils.TRAIN),
-		Version: int(req.JobId),
+	s.scheduler_channel <- utils.MLMessage{
+		Action:    int(utils.TRAIN),
+		JobID:     int(req.JobId),
+		ModelType: req.ModelType,
+		BatchSize: int(req.BatchSize),
 	}
 
-	out, _ := <-s.output_channel
+	out, _ := <-s.scheduler_channel
 
 	var err error
-	for _, member := range out.Replicas {
+	for _, member := range out.MembershipList {
 		_, err = client_model.AskMemberToInitializeModels(member+":3333", int(req.JobId), int(req.BatchSize), req.ModelType)
 		if err != nil {
 			log.Printf("Startjob failed to ask member to initialzie models for member: %v", member)

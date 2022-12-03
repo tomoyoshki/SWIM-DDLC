@@ -59,6 +59,9 @@ var MasterIncommingChannel = make(chan utils.ChannelInMessage)
 /* Messages for master's output message */
 var MasterOutgoingChannel = make(chan utils.ChannelOutMessage)
 
+// Message for Scheduler and GRPC
+var SchedulerMLChannel = make(chan utils.MLMessage)
+
 /* Messages for failed process' information */
 var MasterFailChannel = make(chan string)
 
@@ -215,13 +218,13 @@ func main() {
 			if this_host == INTRODUCER_IP {
 				/* Setup the introducer */
 				go IntroduceServer()
-				go server.Server(MASTER_PORT_NUMBER, MasterIncommingChannel, MasterOutgoingChannel, filesystem_finish_channel, new_introducer_channel, &server_files)
+				go server.Server(MASTER_PORT_NUMBER, MasterIncommingChannel, MasterOutgoingChannel, filesystem_finish_channel, new_introducer_channel, SchedulerMLChannel, &server_files)
 				go MasterServer()
 			} else {
 				/* Setup client and request to the introducer */
 				go AskToIntroduce()
 				go NewIntroducer()
-				go server.Server(MASTER_PORT_NUMBER, MasterIncommingChannel, MasterOutgoingChannel, filesystem_finish_channel, new_introducer_channel, &server_files)
+				go server.Server(MASTER_PORT_NUMBER, MasterIncommingChannel, MasterOutgoingChannel, filesystem_finish_channel, new_introducer_channel, SchedulerMLChannel, &server_files)
 			}
 		} else if input == "leave" {
 			user_leave = true
@@ -426,7 +429,7 @@ func handleMLCommand(input string, input_list []string) {
 			log.Println("Received error starting job from server")
 		}
 	case "inference":
-		// inference job_id folder
+		// inference job_id
 	}
 
 }
