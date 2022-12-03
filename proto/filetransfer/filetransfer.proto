@@ -16,7 +16,12 @@ service FileService {
 
     // client ask master to initialize models on clusters
     rpc StartJob(JobRequest) returns (JobResponse){}
+
+    // Master asks each member to intialize their models
     rpc AskMemberToInitializeModels(ModelTrainRequest) returns (ModelTrainResponse) {}
+
+    // Master asks each member to remove their models
+    rpc AskMemberToRemoveModels(ModelRemoveRequest) returns (ModelRemoveResponse){}
 
     // Tells a VM that these replicas have inferenece files you have
     rpc SendJobInformation(JobInformationRequest) returns (JobInformationResponse){}
@@ -110,5 +115,13 @@ message ModelTrainRequest {
 }
 
 message ModelTrainResponse {
+    string status = 1;
+}
+
+message ModelRemoveRequest {
+    int32 job_id = 1;
+}
+
+message ModelRemoveResponse {
     string status = 1;
 }

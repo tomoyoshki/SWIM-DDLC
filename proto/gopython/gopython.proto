@@ -11,6 +11,7 @@ option go_package = "cs425mp3/proto/gopython";
 service GoPython {
     rpc InitializeModel(InitializeRequest) returns (InitializeResponse){}
     rpc ModelInference(InferenceRequest) returns (InferenceResponse){}
+    rpc RemoveModel(RemoveRequest) returns (RemoveResponse){}
 }
 
 message InitializeRequest {
@@ -33,4 +34,12 @@ message InferenceRequest {
 message InferenceResponse {
     string status = 1;
     bytes inference_result = 2;
+}
+
+message RemoveRequest {
+    int32 job_id = 1;
+}
+
+message RemoveResponse {
+    string status = 1;
 }

@@ -93,3 +93,27 @@ func AskToInference(addr string, job_id int, batch_id int, inference_size int, d
 	res_status, err := client.ModelInference(context.Background(), job_id, batch_id, inference_size, data_folder)
 	return res_status, nil
 }
+
+func AskMemberToRemoveModels(addr string, job_id int) (string, error) {
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("AskToInference() did not connect: %v", err)
+		return "", err
+	}
+	defer conn.Close()
+	client := fileclient.NewClient(conn, nil)
+	res, err := client.AskMemberToRemoveModels(context.Background(), job_id)
+	return res, nil
+}
+
+func AskToRemoveModels(addr string, job_id int) (string, error) {
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("AskToInference() did not connect: %v", err)
+		return "", err
+	}
+	defer conn.Close()
+	client := pythonclient.NewPythonClient(conn)
+	res, err := client.RemoveModel(context.Background(), job_id)
+	return res, nil
+}

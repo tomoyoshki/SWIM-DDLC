@@ -1,20 +1,22 @@
+import os
 import logging
-from concurrent.futures import ThreadPoolExecutor
-
 import grpc
+import json
 import numpy as np
+from pathlib import Path
+import signal
+import shutil
 import torch
 from torchvision import datasets, models, transforms
 import warnings
 
-import json
 
-from gopython_pb2 import InitializeRequest, InitializeResponse, InferenceRequest, InferenceResponse
+from concurrent.futures import ThreadPoolExecutor
+from gopython_pb2 import InitializeRequest, InitializeResponse, InferenceRequest, InferenceResponse, RemoveResponse
 from gopython_pb2_grpc import GoPythonServicer, add_GoPythonServicer_to_server
 
 warnings.filterwarnings('ignore')
 
-import signal
 
 server = None
 
@@ -105,7 +107,7 @@ def processData(job_id, batch_id, data_folder):
     
 class GoPythonServer(GoPythonServicer):
     def InitializeModel(self, request, context):
-        logging.info("Client requesting to intialize model")
+        logging.info("Master requesting to intialize model")
         resp = InitializeResponse(status="OK")
         model_type = request.model_type
         res = prepareModel(request.job_id, model_type)
@@ -115,24 +117,39 @@ class GoPythonServer(GoPythonServicer):
             resp.status = "No model available"
         return resp
     
+    def RemoveModel(self, request, context):
+        logging.info("Master requesting on removing model")
+        resp = RemoveResponse(status="OK")
+        if request.job_id == 0:
+            del model1
+        elif request.job_id == 1:
+            del model2
+        else:
+            logging.info("Invalid model")
+
+        shutil.rmtree(f'python/data/{request.job_id}')
+        shutil.rmtree(f'python.result/{request.job_id}')
+
+
+    
     def ModelInference(self, request, context):
-        logging.info("Client inference on data")
+        logging.info("Inference on data")
         job_id = request.job_id
         batch_id = request.batch_id
         inference_size = request.inference_size
         inference_data_folder = request.inference_data_folder
-
-        print(f"Job Id: {job_id}")
-        print(f"Batch Id: {batch_id}")
-        print(f"Inference size: {inference_size}")
-        print(f"Inference data folder: {inference_data_folder}")
-
         result = processData(job_id, batch_id, inference_data_folder)
-        result_directory = "/python/result/"
-        print(result)
+
+
+        result_directory = f"/python/result/{job_id}/{batch_id}/"
+        path = Path(result_directory)
+        path.mkdir(parents=True)
+
+        with open(result_directory + "result.txt", "w") as f:
+            for line in result:
+                f.write("%s\n", line)
+
         res = json.dumps(result).encode('utf-8')
-        # print(user_encode_data)
-        # resp.inference_result = res
         resp = InferenceResponse(status="OK", inference_result=res)
         return resp
 

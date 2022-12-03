@@ -235,3 +235,16 @@ func (c Client) AskMemberToInitializeModels(ctx context.Context, job_id int, bat
 
 	return res.Status, nil
 }
+
+func (c Client) AskMemberToRemoveModels(ctx context.Context, job_id int) (string, error) {
+	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
+	defer cancel()
+	res, err := c.client.AskMemberToRemoveModels(ctx, &fileproto.ModelRemoveRequest{
+		JobId: int32(job_id),
+	})
+	if err != nil {
+		log.Println("AskMemberToRemoveModels() fails")
+		return "", err
+	}
+	return res.Status, nil
+}

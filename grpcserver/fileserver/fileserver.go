@@ -260,3 +260,17 @@ func (s Server) AskMemberToInitializeModels(ctx context.Context, req *fileproto.
 	}
 	return &response, err
 }
+
+func (s Server) AskMemberToRemoveModels(ctx context.Context, req *fileproto.ModelRemoveRequest) (*fileproto.ModelRemoveResponse, error) {
+	response := fileproto.ModelRemoveResponse{
+		Status: "OK",
+	}
+	_, err := client_model.AskMemberToRemoveModels("loclahost:9999", int(req.JobId))
+
+	if err != nil {
+		log.Printf("AskMemberToRemoveModels() fails to call AskMemberToRemoveModels")
+		response.Status = "Error"
+	}
+
+	return &response, err
+}

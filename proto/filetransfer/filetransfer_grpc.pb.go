@@ -30,7 +30,10 @@ type FileServiceClient interface {
 	MasterAskToReplicate(ctx context.Context, in *MasterReplicateRequest, opts ...grpc.CallOption) (*MasterReplicateResponse, error)
 	// client ask master to initialize models on clusters
 	StartJob(ctx context.Context, in *JobRequest, opts ...grpc.CallOption) (*JobResponse, error)
+	// Master asks each member to intialize their models
 	AskMemberToInitializeModels(ctx context.Context, in *ModelTrainRequest, opts ...grpc.CallOption) (*ModelTrainResponse, error)
+	// Master asks each member to remove their models
+	AskMemberToRemoveModels(ctx context.Context, in *ModelRemoveRequest, opts ...grpc.CallOption) (*ModelRemoveResponse, error)
 	// Tells a VM that these replicas have inferenece files you have
 	SendJobInformation(ctx context.Context, in *JobInformationRequest, opts ...grpc.CallOption) (*JobInformationResponse, error)
 }
@@ -163,6 +166,15 @@ func (c *fileServiceClient) AskMemberToInitializeModels(ctx context.Context, in 
 	return out, nil
 }
 
+func (c *fileServiceClient) AskMemberToRemoveModels(ctx context.Context, in *ModelRemoveRequest, opts ...grpc.CallOption) (*ModelRemoveResponse, error) {
+	out := new(ModelRemoveResponse)
+	err := c.cc.Invoke(ctx, "/filetransfer.FileService/AskMemberToRemoveModels", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *fileServiceClient) SendJobInformation(ctx context.Context, in *JobInformationRequest, opts ...grpc.CallOption) (*JobInformationResponse, error) {
 	out := new(JobInformationResponse)
 	err := c.cc.Invoke(ctx, "/filetransfer.FileService/SendJobInformation", in, out, opts...)
@@ -184,7 +196,10 @@ type FileServiceServer interface {
 	MasterAskToReplicate(context.Context, *MasterReplicateRequest) (*MasterReplicateResponse, error)
 	// client ask master to initialize models on clusters
 	StartJob(context.Context, *JobRequest) (*JobResponse, error)
+	// Master asks each member to intialize their models
 	AskMemberToInitializeModels(context.Context, *ModelTrainRequest) (*ModelTrainResponse, error)
+	// Master asks each member to remove their models
+	AskMemberToRemoveModels(context.Context, *ModelRemoveRequest) (*ModelRemoveResponse, error)
 	// Tells a VM that these replicas have inferenece files you have
 	SendJobInformation(context.Context, *JobInformationRequest) (*JobInformationResponse, error)
 	mustEmbedUnimplementedFileServiceServer()
@@ -217,6 +232,9 @@ func (UnimplementedFileServiceServer) StartJob(context.Context, *JobRequest) (*J
 }
 func (UnimplementedFileServiceServer) AskMemberToInitializeModels(context.Context, *ModelTrainRequest) (*ModelTrainResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AskMemberToInitializeModels not implemented")
+}
+func (UnimplementedFileServiceServer) AskMemberToRemoveModels(context.Context, *ModelRemoveRequest) (*ModelRemoveResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AskMemberToRemoveModels not implemented")
 }
 func (UnimplementedFileServiceServer) SendJobInformation(context.Context, *JobInformationRequest) (*JobInformationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendJobInformation not implemented")
@@ -389,6 +407,24 @@ func _FileService_AskMemberToInitializeModels_Handler(srv interface{}, ctx conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FileService_AskMemberToRemoveModels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ModelRemoveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FileServiceServer).AskMemberToRemoveModels(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/filetransfer.FileService/AskMemberToRemoveModels",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FileServiceServer).AskMemberToRemoveModels(ctx, req.(*ModelRemoveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _FileService_SendJobInformation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(JobInformationRequest)
 	if err := dec(in); err != nil {
@@ -437,6 +473,10 @@ var FileService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AskMemberToInitializeModels",
 			Handler:    _FileService_AskMemberToInitializeModels_Handler,
+		},
+		{
+			MethodName: "AskMemberToRemoveModels",
+			Handler:    _FileService_AskMemberToRemoveModels_Handler,
 		},
 		{
 			MethodName: "SendJobInformation",

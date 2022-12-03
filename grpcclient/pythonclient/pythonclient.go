@@ -51,3 +51,16 @@ func (c PythonClient) ModelInference(ctx context.Context, job_id int, batch_id i
 	}
 	return res.InferenceResult, nil
 }
+
+func (c PythonClient) RemoveModel(ctx context.Context, job_id int) (string, error) {
+	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
+	defer cancel()
+	res, err := c.client.RemoveModel(ctx, &pythonproto.RemoveRequest{
+		JobId: int32(job_id),
+	})
+	if err != nil {
+		log.Printf("Failed to remove model")
+		return "", err
+	}
+	return res.Status, nil
+}

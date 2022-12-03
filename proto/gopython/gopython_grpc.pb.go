@@ -24,6 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 type GoPythonClient interface {
 	InitializeModel(ctx context.Context, in *InitializeRequest, opts ...grpc.CallOption) (*InitializeResponse, error)
 	ModelInference(ctx context.Context, in *InferenceRequest, opts ...grpc.CallOption) (*InferenceResponse, error)
+	RemoveModel(ctx context.Context, in *RemoveRequest, opts ...grpc.CallOption) (*RemoveResponse, error)
 }
 
 type goPythonClient struct {
@@ -52,12 +53,22 @@ func (c *goPythonClient) ModelInference(ctx context.Context, in *InferenceReques
 	return out, nil
 }
 
+func (c *goPythonClient) RemoveModel(ctx context.Context, in *RemoveRequest, opts ...grpc.CallOption) (*RemoveResponse, error) {
+	out := new(RemoveResponse)
+	err := c.cc.Invoke(ctx, "/gopython.GoPython/RemoveModel", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // GoPythonServer is the server API for GoPython service.
 // All implementations must embed UnimplementedGoPythonServer
 // for forward compatibility
 type GoPythonServer interface {
 	InitializeModel(context.Context, *InitializeRequest) (*InitializeResponse, error)
 	ModelInference(context.Context, *InferenceRequest) (*InferenceResponse, error)
+	RemoveModel(context.Context, *RemoveRequest) (*RemoveResponse, error)
 	mustEmbedUnimplementedGoPythonServer()
 }
 
@@ -70,6 +81,9 @@ func (UnimplementedGoPythonServer) InitializeModel(context.Context, *InitializeR
 }
 func (UnimplementedGoPythonServer) ModelInference(context.Context, *InferenceRequest) (*InferenceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ModelInference not implemented")
+}
+func (UnimplementedGoPythonServer) RemoveModel(context.Context, *RemoveRequest) (*RemoveResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemoveModel not implemented")
 }
 func (UnimplementedGoPythonServer) mustEmbedUnimplementedGoPythonServer() {}
 
@@ -120,6 +134,24 @@ func _GoPython_ModelInference_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GoPython_RemoveModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GoPythonServer).RemoveModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gopython.GoPython/RemoveModel",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GoPythonServer).RemoveModel(ctx, req.(*RemoveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // GoPython_ServiceDesc is the grpc.ServiceDesc for GoPython service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -134,6 +166,10 @@ var GoPython_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ModelInference",
 			Handler:    _GoPython_ModelInference_Handler,
+		},
+		{
+			MethodName: "RemoveModel",
+			Handler:    _GoPython_RemoveModel_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
