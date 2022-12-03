@@ -229,9 +229,7 @@ func main() {
 			ticker.Stop()
 		} else if input_list[0] == "test" {
 			handleTest(input, input_list)
-		} else if input_list[0] == "start_job" {
-
-		} else {
+		}else {
 			command := strings.ToLower(input_list[0])
 			handleSDFSCommand(command, input_list)
 		}
@@ -276,6 +274,7 @@ func handleTest(input string, input_list []string) {
 }
 
 func handleSDFSCommand(command string, input_list []string) {
+	log.Println("Command")
 	switch command {
 	case "put":
 		if len(input_list) != 3 {
