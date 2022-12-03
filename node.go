@@ -989,14 +989,15 @@ func RoundRobin(process string) {
 
 			log.Printf("Current batch files: %v", current_batch_files)
 			// Map of current batch file's metadata
-			files_replicas := make(map[string]utils.FileMetaData)
+			files_replicas := make(map[string][]string)
 			// For each file in the batch, send it through channel.
 			for _, filename := range current_batch_files {
-				file_meta := file_metadata[filename]
+				file_meta := file_metadata[filename].Replicas
 				files_replicas[filename] = file_meta
 			}
 			// TODO: Call askToReplicate and pass in files_replicas
 			// client.FetchBatchData(process, files_replicas) // Wait until this finishes
+			client_model.SendInferenceInformation(process+"3333", current_job, job_status[current_job].process_batch_progress[process], files_replicas)
 
 			// Update process batch progress
 			current_batch := job_status[current_job].process_batch_progress[process]
