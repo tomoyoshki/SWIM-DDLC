@@ -64,22 +64,20 @@ func ClientRemoveModel(addr string, job_id int) (string, error) {
 }
 
 // Server send job information for member to request files to download
-func SendInferenceInformation(addr string, job_id int, batch_id int, file_replicas map[string][]string) string {
-	log.Printf("Sending Inference task to addr: %v", addr)
+func SendInferenceInformation(addr string, job_id int, batch_id int, file_replicas map[string][]string) map[string][]string {
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Printf("SendInferenceInformation() did not connect: %v", err)
-		return "Connection Failed"
+		return nil
 	}
 	defer conn.Close()
 	client := fileclient.NewClient(conn, nil)
 	res_status, err := client.SendJobInformation(context.Background(), batch_id, job_id, file_replicas)
-	if err != nil && res_status != "OK" {
+	if err != nil {
 		log.Printf("SendInferenceInformation() failed")
-		return "Send Information Failed Failed"
+		return nil
 	}
-	log.Print("Good status")
-	return "OK"
+	return res_status
 }
 
 // Master asks Members in the Membership list to initialize their models
@@ -117,7 +115,6 @@ func SendJobStatusReplication(addr string, job_status utils.JobStatus) (string, 
 
 // Go Member ask Python Server to initialize model
 func AskToInitializeModel(addr string, job_id int, batch_size int, model_type string) (string, error) {
-	log.Println("Requested to initialize model job")
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Printf("ClientAskToReplicate() did not connect: %v", err)

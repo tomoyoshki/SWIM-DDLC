@@ -47,7 +47,7 @@ func (c Client) Upload(ctx context.Context, localfilename string, sdfsfilename s
 	}
 
 	// Maximum 128MB size per stream.
-	buf := make([]byte, 11*1024*1024)
+	buf := make([]byte, 1*1024*1024)
 	total := 0
 	for {
 		num, err := fil.Read(buf)
@@ -67,7 +67,6 @@ func (c Client) Upload(ctx context.Context, localfilename string, sdfsfilename s
 			return "", err
 		}
 		total += num
-		log.Printf("Send %v bytes", total)
 	}
 
 	res, err := stream.CloseAndRecv()
@@ -109,14 +108,13 @@ func (c Client) Download(localfilename string, sdfsfilename string) error {
 func (c Client) Delete(ctx context.Context, sdfsfilename string) error {
 	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
 	defer cancel()
-	res, err := c.client.Delete(ctx, &fileproto.DeleteRequest{
+	_, err := c.client.Delete(ctx, &fileproto.DeleteRequest{
 		Filename: sdfsfilename,
 	})
 	if err != nil {
 		log.Printf("fileclient.go:Delete():could not delete: %v", err)
 		return err
 	}
-	log.Printf("Successfully deleted %v", res.Filename)
 	return nil
 }
 
@@ -157,7 +155,6 @@ func (c Client) MasterElectBroadcast(ctx context.Context) ([]string, error) {
 	}
 	var results []string
 	gob.NewDecoder(bytes.NewReader(res.Details)).Decode(&results)
-	log.Printf("Received file information %v", results)
 	return results, nil
 }
 
@@ -220,7 +217,7 @@ func (c Client) RequestRemove(ctx context.Context, job_id int) (string, error) {
 }
 
 // Coordinator tell some machine which replicas have files, return the result that machine inferenced on
-func (c Client) SendJobInformation(ctx context.Context, batch_id int, job_id int, replicas map[string][]string) (string, error) {
+func (c Client) SendJobInformation(ctx context.Context, batch_id int, job_id int, replicas map[string][]string) (map[string][]string, error) {
 	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(100*time.Second))
 	defer cancel()
 	buf := &bytes.Buffer{}
@@ -234,14 +231,14 @@ func (c Client) SendJobInformation(ctx context.Context, batch_id int, job_id int
 
 	if err != nil {
 		log.Printf("SendJobInformation(): %v", err)
-		return "", err
+		return nil, err
 	}
 	ires := make(map[string][]string)
 	err = json.Unmarshal(res.InferenceResult, &ires)
-	for k, v := range ires {
-		log.Printf("%v: %v", k, v)
-	}
-	return res.Status, nil
+	// for k, v := range ires {
+	// 	log.Printf("%v: %v", k, v)
+	// }
+	return ires, nil
 }
 
 func (c Client) AskMemberToInitializeModels(ctx context.Context, job_id int, batch_size int, model_type string) (string, error) {

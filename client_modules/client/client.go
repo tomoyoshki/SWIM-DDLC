@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strings"
 
 	"cs425mp4/grpcclient/fileclient"
 	"cs425mp4/storage"
@@ -20,7 +19,7 @@ const (
 // Called by a client trying to PUT a file [localfilename] as [sdfsfilename] to any process [addr]
 func ClientUpload(addr string, localfilename string, sdfsfilename string) error {
 	// conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	maxMsgSize := 12 * 1024 * 1024
+	maxMsgSize := 2 * 1024 * 1024
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxMsgSize), grpc.MaxCallSendMsgSize(maxMsgSize)))
 	if err != nil {
 		log.Print("ClientUpload(): could not connect", err)
@@ -52,7 +51,6 @@ func ClientDownload(addr string, localfilename string, sdfsfilename string) erro
 		log.Print("ClientDownload(): could not download", err)
 		return err
 	}
-	log.Printf("\n\nScuccessfully downloaded file %v from the server as %v\n\n", sdfsfilename, localfilename)
 	return nil
 }
 
@@ -72,13 +70,11 @@ func ClientDelete(addr string, sdfsfilename string) error {
 		log.Print("ClientDelete(): could not delete", err)
 		return err
 	}
-	log.Printf("\n\nScuccessfully deleted file %v from the server\n\n", sdfsfilename)
 	return nil
 }
 
 // Called by a client to request an [action] for [localfilename] as [sdfsfilename] to the master [addr]
 func ClientRequest(addr string, localfilename string, sdfsfilename string, action int) ([]string, string, error) {
-	log.Printf("Establishes connection to Client Request to %s", addr)
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Printf("did ClientRequest() could not connect: %v", err)
@@ -91,13 +87,11 @@ func ClientRequest(addr string, localfilename string, sdfsfilename string, actio
 	if err != nil {
 		return []string{}, "", nil
 	}
-	log.Print("Response from request: ", response)
 	return response, new_sdfsfilename, nil
 }
 
 // Called by client or the new Master Node to get all filenames on every server
 func ClientMasterElect(LiveProcesses []string) map[string][]string {
-	log.Print("Master asking for files from all nodes")
 	/* Maps a file to its replicas */
 	var ProcessFiles = make(map[string][]string)
 
@@ -119,7 +113,6 @@ func ClientMasterElect(LiveProcesses []string) map[string][]string {
 		}
 		ProcessFiles[address] = response
 	}
-	log.Printf("Received from other processes: %v", ProcessFiles)
 	return ProcessFiles
 }
 
@@ -134,12 +127,10 @@ func ClientRequestReplicas(sdfsfilename string, non_replica_addr string, replica
 			break
 		}
 	}
-	log.Print("\n" + strings.Repeat("=", 80) + "Finished requesting for replicas" + "\n" + strings.Repeat("=", 80))
 }
 
 // Called by a Master to ask some Process [addr] to send the file [sdfsfilename] to [non_replica_addr]
 func ClientAskToReplicate(addr string, non_replica_addr string, sdfsfilename string, num_version int) error {
-	log.Printf("Master Asking process [%v] to send file [%v] to process [%v]", addr, sdfsfilename, non_replica_addr)
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Printf("ClientAskToReplicate() did not connect: %v", err)

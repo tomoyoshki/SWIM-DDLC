@@ -45,7 +45,6 @@ func NewServer(storage storage.Manager,
 	SchedulerOutChannel chan utils.MLMessage,
 	grpc_node_channel chan map[int]utils.JobStatus,
 	serverfileinfo *[]string) Server {
-	log.Print("Creating new Server storage")
 	return Server{
 		input_channel:          input_channel,
 		output_channel:         output_channel,
@@ -78,7 +77,6 @@ func (s Server) Upload(stream fileproto.FileService_UploadServer) error {
 		if name == "" {
 			name = req.GetFilename()
 			file = storage.NewFile(name)
-			log.Printf("fileserver.go:Upload():Received file %v", name)
 		}
 		if err := file.Write(req.GetChunk()); err != nil {
 			return status.Error(codes.Internal, err.Error())
@@ -96,7 +94,6 @@ func (s Server) Download(in *fileproto.DownloadRequest, srv fileproto.FileServic
 	}
 	// Maximum 1KB per message
 	buf := make([]byte, 1024)
-	log.Printf("Sending file %v to the client", sdfsfile)
 	for {
 		num, err := fil.Read(buf)
 		if err == io.EOF {
@@ -125,12 +122,10 @@ func (s Server) Delete(ctx context.Context, req *fileproto.DeleteRequest) (*file
 	// For each file we have under targets/
 	for _, file := range *s.serverfileinfo {
 		file_regex := "[0-9]+-" + req.Filename
-		log.Printf("Checking if %v matches %v", file_regex, file)
+		// log.Printf("Checking if %v matches %v", file_regex, file)
 		match, _ := regexp.MatchString(file_regex, file)
 		// If the file is the target file
 		if match {
-			log.Printf("They match")
-			log.Printf("Deleting the file %v", file)
 			err := os.Remove(sdfsfile_directory + file)
 			if err != nil {
 				log.Printf("fileserver.go:Delete():Failed to remove file %v", sdfsfile_directory+file)
@@ -141,8 +136,8 @@ func (s Server) Delete(ctx context.Context, req *fileproto.DeleteRequest) (*file
 	}
 
 	*s.serverfileinfo = newfileinfo
-	log.Printf("After delete: %v", newfileinfo)
-	log.Printf("new server file info: %v", newfileinfo)
+	// log.Printf("After delete: %v", newfileinfo)
+	// log.Printf("new server file info: %v", newfileinfo)
 	return &res, nil
 }
 
@@ -155,7 +150,7 @@ func (s Server) MasterRequest(ctx context.Context, req *fileproto.MasterNodeRequ
 		Localfile: req.Localfilename,
 		Sdfsfile:  req.Sdfsfilename,
 	}
-	log.Printf("Node.go successfully processed the request")
+	// log.Printf("Node.go successfully processed the request")
 	out, _ := <-s.output_channel
 	buf := &bytes.Buffer{}
 	gob.NewEncoder(buf).Encode(out.Replicas)
@@ -164,13 +159,11 @@ func (s Server) MasterRequest(ctx context.Context, req *fileproto.MasterNodeRequ
 		NumVersion: strconv.Itoa(out.Version),
 		Replicas:   bs,
 	}
-	log.Print("Responding")
 	return &res, nil
 }
 
 // Each process sends response including all te files they have back to the master
 func (s Server) MasterElectBroadcast(ctx context.Context, req *fileproto.MasterElectRequest) (*fileproto.MasterElectResponse, error) {
-	log.Print("Received request with master id: ", req.MasterId)
 	s.new_introducer_channel <- req.MasterId
 	buf := &bytes.Buffer{}
 	gob.NewEncoder(buf).Encode(*s.serverfileinfo)
@@ -188,7 +181,6 @@ func (s Server) MasterAskToReplicate(ctx context.Context, req *fileproto.MasterR
 	response := fileproto.MasterReplicateResponse{
 		Response: "ok",
 	}
-	log.Printf("fileserver.go:MasterAskToReplicate(): Asked to send %v to addr %v", req.Sdfsfilename, req.ReplicaAddr)
 	file_version, err := strconv.Atoi(req.Version)
 	if err != nil {
 		return &response, err
@@ -273,7 +265,7 @@ func (s Server) SendJobInformation(ctx context.Context, req *fileproto.JobInform
 		Status: "OK",
 	}
 
-	log.Println("Received SendJobInformation()")
+	// log.Println("Received SendJobInformation()")
 	file_prefix := fmt.Sprintf("python/data/%d/%d/", req.JobId, req.BatchId)
 	var file_replicas map[string][]string
 	gob.NewDecoder(bytes.NewReader(req.Replicas)).Decode(&file_replicas)
