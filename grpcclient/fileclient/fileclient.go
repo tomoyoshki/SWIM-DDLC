@@ -295,7 +295,7 @@ func (c Client) RequestJobStatus(ctx context.Context, job_id int) (string, error
 	})
 
 	if err != nil {
-		log.Println("RequestJobStatus() failed ")
+		log.Println("RequestJobStatus() failed ", err)
 		return "PrintStatus returned error", err
 	}
 

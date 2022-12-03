@@ -34,6 +34,7 @@ const (
 	TRAIN       = 7
 	INFERENCE   = 8
 	REMOVE      = 9
+	STATUS      = 10
 )
 
 func SetupPythonServer() {
@@ -85,6 +86,7 @@ type MLMessage struct {
 	ModelType      string
 	ModelName      string
 	MembershipList []string
+	JobInfo        JobStatus
 }
 
 /* This represents a metadata for a file; */
@@ -176,6 +178,10 @@ func PrintJob(job JobStatus) {
 	fmt.Println("=\tQuery rate: ", job.QueryRate)
 	fmt.Println("=\tModel type: ", job.ModelType)
 	fmt.Println("=\tModel name: ", job.ModelName)
-	fmt.Println("=\tCurrent VM assigned")
+	fmt.Println("=\tRemaining files: ", len(job.TaskQueues))
+	fmt.Println("=\tVMs assigned to this job")
+	for process, file := range job.ProcessTestFiles {
+		fmt.Printf("=\t\t%v: %v", process, file)
+	}
 	fmt.Println(strings.Repeat("=", 80))
 }

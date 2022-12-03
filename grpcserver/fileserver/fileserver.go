@@ -314,3 +314,18 @@ func (s Server) AskMemberToRemoveModels(ctx context.Context, req *fileproto.Mode
 
 	return &response, err
 }
+
+func (s Server) PrintStatus(ctx context.Context, req *fileproto.PrintStatusRequest) (*fileproto.PrintStatusResponse, error) {
+	response := fileproto.PrintStatusResponse{}
+	s.scheduler_in_channel <- utils.MLMessage{
+		Action: int(utils.STATUS),
+		JobID:  int(req.JobId),
+	}
+	out, _ := <-s.scheduler_out_channel
+	utils.PrintJob(out.JobInfo)
+	buf := &bytes.Buffer{}
+	gob.NewEncoder(buf).Encode(out.JobInfo)
+	bs := buf.Bytes()
+	response.Info = bs
+	return &response, nil
+}

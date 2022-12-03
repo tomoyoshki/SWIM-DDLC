@@ -451,6 +451,25 @@ func handleMLCommand(input string, input_list []string) {
 		if err != nil {
 			log.Println("Received error removing job from server")
 		}
+	case "job_status":
+		if len(input_list) > 2 {
+			log.Println("Invalid job_status command [job_status (0 or 1 or None)]")
+			return
+		}
+		job_id := 0
+		if len(input_list) == 2 {
+			job_id_int, err := strconv.Atoi(input_list[1])
+			if err != nil || (job_id_int != 0 && job_id_int != 1) {
+				log.Println("Invalid job_id (0, 1)")
+				return
+			}
+			job_id = job_id_int
+		}
+		_, err := client_model.ClientRequestJobStatus(MASTER_ADDRESS, job_id)
+		if err != nil {
+			log.Println("Received error requesting job status")
+			return
+		}
 	}
 
 }
@@ -940,13 +959,18 @@ func InitializeJobStatus(job_id int, model_name string, model_type string, batch
 
 	// Gets all the test files under dir.
 	// all_files := dir_test_files_map["targets/1-test_data/images"]
+	// TODO: Chage for images and speech
 	all_files := []string{}
 	for k, _ := range file_metadata {
 		all_files = append(all_files, k)
 	}
 
 	new_status := utils.JobStatus{JobId: job_id, BatchSize: batch_size, ModelType: model_type, ModelName: model_name}
+	log.Println(batch_size)
+	log.Println(model_type)
+	log.Println(model_name)
 
+	log.Println(new_status)
 	membership_mutex.Lock()
 	mem_list, _ := GetMembershipList()
 	membership_mutex.Unlock()
@@ -1017,8 +1041,6 @@ func RoundRobin(process string) {
 			job_status[current_job] = current_job_status
 			job_status[current_job].TaskLock.Unlock()
 
-			// log.Printf("Current batch files: %v", current_batch_files)
-			// Map of current batch file's metadata
 			files_replicas := make(map[string][]string)
 			// For each file in the batch, send it through channel.
 			for _, filename := range current_batch_files {
@@ -1138,6 +1160,11 @@ func SchedulerServer() {
 				SchedulerOutChannel <- utils.MLMessage{
 					Action:         utils.REMOVE,
 					MembershipList: mem_list}
+			} else if new_job.Action == utils.STATUS {
+				SchedulerOutChannel <- utils.MLMessage{
+					Action:  utils.STATUS,
+					JobInfo: job_status[new_job.JobID],
+				}
 			}
 		}
 	}
