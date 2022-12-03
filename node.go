@@ -212,6 +212,7 @@ func main() {
 				go IntroduceServer()
 				go server.Server(MASTER_PORT_NUMBER, MasterIncommingChannel, MasterOutgoingChannel, filesystem_finish_channel, new_introducer_channel, SchedulerInChannel, SchedulerOutChannel, grpc_node_channel, &server_files)
 				go MasterServer()
+				go SchedulerServer()
 			} else {
 				/* Setup client and request to the introducer */
 				go AskToIntroduce()
