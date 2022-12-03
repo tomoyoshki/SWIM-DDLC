@@ -20,6 +20,9 @@ service FileService {
     // client ask master to start inferencing on model
     rpc StartInference(JobRequest) returns (JobResponse){}
 
+    // Client ask master to remove model
+    rpc RequestRemove(JobRequest) returns (JobResponse){}
+
     // Master asks each member to intialize their models
     rpc AskMemberToInitializeModels(ModelTrainRequest) returns (ModelTrainResponse) {}
 

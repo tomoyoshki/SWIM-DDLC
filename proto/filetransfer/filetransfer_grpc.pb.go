@@ -32,6 +32,8 @@ type FileServiceClient interface {
 	StartJob(ctx context.Context, in *JobRequest, opts ...grpc.CallOption) (*JobResponse, error)
 	// client ask master to start inferencing on model
 	StartInference(ctx context.Context, in *JobRequest, opts ...grpc.CallOption) (*JobResponse, error)
+	// Client ask master to remove model
+	RequestRemove(ctx context.Context, in *JobRequest, opts ...grpc.CallOption) (*JobResponse, error)
 	// Master asks each member to intialize their models
 	AskMemberToInitializeModels(ctx context.Context, in *ModelTrainRequest, opts ...grpc.CallOption) (*ModelTrainResponse, error)
 	// Master asks each member to remove their models
@@ -170,6 +172,15 @@ func (c *fileServiceClient) StartInference(ctx context.Context, in *JobRequest, 
 	return out, nil
 }
 
+func (c *fileServiceClient) RequestRemove(ctx context.Context, in *JobRequest, opts ...grpc.CallOption) (*JobResponse, error) {
+	out := new(JobResponse)
+	err := c.cc.Invoke(ctx, "/filetransfer.FileService/RequestRemove", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *fileServiceClient) AskMemberToInitializeModels(ctx context.Context, in *ModelTrainRequest, opts ...grpc.CallOption) (*ModelTrainResponse, error) {
 	out := new(ModelTrainResponse)
 	err := c.cc.Invoke(ctx, "/filetransfer.FileService/AskMemberToInitializeModels", in, out, opts...)
@@ -229,6 +240,8 @@ type FileServiceServer interface {
 	StartJob(context.Context, *JobRequest) (*JobResponse, error)
 	// client ask master to start inferencing on model
 	StartInference(context.Context, *JobRequest) (*JobResponse, error)
+	// Client ask master to remove model
+	RequestRemove(context.Context, *JobRequest) (*JobResponse, error)
 	// Master asks each member to intialize their models
 	AskMemberToInitializeModels(context.Context, *ModelTrainRequest) (*ModelTrainResponse, error)
 	// Master asks each member to remove their models
@@ -267,6 +280,9 @@ func (UnimplementedFileServiceServer) StartJob(context.Context, *JobRequest) (*J
 }
 func (UnimplementedFileServiceServer) StartInference(context.Context, *JobRequest) (*JobResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartInference not implemented")
+}
+func (UnimplementedFileServiceServer) RequestRemove(context.Context, *JobRequest) (*JobResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RequestRemove not implemented")
 }
 func (UnimplementedFileServiceServer) AskMemberToInitializeModels(context.Context, *ModelTrainRequest) (*ModelTrainResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AskMemberToInitializeModels not implemented")
@@ -451,6 +467,24 @@ func _FileService_StartInference_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FileService_RequestRemove_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(JobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FileServiceServer).RequestRemove(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/filetransfer.FileService/RequestRemove",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FileServiceServer).RequestRemove(ctx, req.(*JobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _FileService_AskMemberToInitializeModels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ModelTrainRequest)
 	if err := dec(in); err != nil {
@@ -571,6 +605,10 @@ var FileService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StartInference",
 			Handler:    _FileService_StartInference_Handler,
+		},
+		{
+			MethodName: "RequestRemove",
+			Handler:    _FileService_RequestRemove_Handler,
 		},
 		{
 			MethodName: "AskMemberToInitializeModels",

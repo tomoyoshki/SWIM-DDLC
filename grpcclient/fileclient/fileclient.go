@@ -205,6 +205,20 @@ func (c Client) StartInference(ctx context.Context, job_id int) (string, error) 
 	return res.Status, err
 }
 
+// Client ask Server to remove model
+func (c Client) RequestRemove(ctx context.Context, job_id int) (string, error) {
+	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
+	defer cancel()
+	res, err := c.client.StartJob(ctx, &fileproto.JobRequest{
+		JobId: int32(job_id),
+	})
+	if err != nil {
+		log.Printf("StartInference() error: %v", err)
+		return "", err
+	}
+	return res.Status, err
+}
+
 // Coordinator tell some machine which replicas have files, return the result that machine inferenced on
 func (c Client) SendJobInformation(ctx context.Context, batch_id int, job_id int, replicas map[string][]string) (string, error) {
 	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(100*time.Second))

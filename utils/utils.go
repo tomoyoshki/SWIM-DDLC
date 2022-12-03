@@ -33,6 +33,7 @@ const (
 	ALLOCATE    = 6
 	TRAIN       = 7
 	INFERENCE   = 8
+	REMOVE      = 9
 )
 
 func SetupPythonServer() {
@@ -98,16 +99,16 @@ type NodeMetaData struct {
 
 // process_allocation     map[string]int      // Maps process to which i-th N/10 (assume num_workers = 10)
 type JobStatus struct {
-	JobId                 int                 // Id of the job
-	BatchSize             int                 // Batch size
-	NumWorkers            int                 // Number of workers doing this job
-	QueryRate             float32             // Query rate
-	ModelType             string              // Current job's model type
-	ModelName             string              // Current job's model name
+	JobId                int                 // Id of the job
+	BatchSize            int                 // Batch size
+	NumWorkers           int                 // Number of workers doing this job
+	QueryRate            float32             // Query rate
+	ModelType            string              // Current job's model type
+	ModelName            string              // Current job's model name
 	ProcessBatchProgress map[string]int      // Maps process to its current batch number in the job (which batch in each N/10)
 	ProcessTestFiles     map[string][]string // Maps process to its assigned test files (of length each_process_total_task)
-	TaskQueues            []string
-	TaskLock              *sync.Mutex
+	TaskQueues           []string
+	TaskLock             *sync.Mutex
 }
 
 func CreateFileDirectory(filepath string) {
@@ -170,11 +171,11 @@ func PrintJobInfo(jobs_info map[int]JobStatus) {
 func PrintJob(job JobStatus) {
 	fmt.Print("Printing job info\n")
 	fmt.Println(strings.Repeat("=", 80))
-	fmt.Println("=\tJob Id: ", job.job_id)
-	fmt.Println("=\tCurrent Batch size: ", job.batch_size)
-	fmt.Println("=\tQuery rate: ", job.query_rate)
-	fmt.Println("=\tModel type: ", job.model_type)
-	fmt.Println("=\tModel name: ", job.model_name)
+	fmt.Println("=\tJob Id: ", job.JobId)
+	fmt.Println("=\tCurrent Batch size: ", job.BatchSize)
+	fmt.Println("=\tQuery rate: ", job.QueryRate)
+	fmt.Println("=\tModel type: ", job.ModelType)
+	fmt.Println("=\tModel name: ", job.ModelName)
 	fmt.Println("=\tCurrent VM assigned")
 	fmt.Println(strings.Repeat("=", 80))
 }

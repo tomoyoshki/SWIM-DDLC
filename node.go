@@ -69,7 +69,7 @@ var MasterFailChannel = make(chan string)
 /* Messages for new process joining */
 var MasterNewChannel = make(chan []string)
 
-var grpc_node_channel = make(chan any)
+var grpc_node_channel = make(chan map[int]utils.JobStatus)
 
 /* Messages for ending master server */
 var filesystem_finish_channel = make(chan bool)
@@ -395,33 +395,64 @@ func handleMLCommand(input string, input_list []string) {
 			log.Println("Invalid start_job command [start_job model_type job_id (0 or 1) batch_size]")
 			return
 		}
-		model_type := input_list[1]
 
-		if model_type != "image" && model_type != "speech" {
-			log.Println("Invalid model_type (image or speech)")
-			return
-		}
-
-		job_id := input_list[2]
+		job_id := input_list[1]
 		job_id_int, err := strconv.Atoi(job_id)
 		if err != nil || (job_id != "0" && job_id != "1") {
 			log.Println("Invalid job_id (0, 1)")
 			return
 		}
 
-		batch_size := input_list[3]
+		batch_size := input_list[2]
 		batch_size_int, err := strconv.Atoi(batch_size)
 		if err != nil {
 			log.Println("Invalid batch_size")
 			return
 		}
 
+		model_type := input_list[3]
+		if model_type != "image" && model_type != "speech" {
+			log.Println("Invalid model_type (image or speech)")
+			return
+		}
 		_, err = client_model.ClientStartJob(MASTER_ADDRESS, job_id_int, batch_size_int, model_type)
 		if err != nil {
 			log.Println("Received error starting job from server")
 		}
 	case "inference":
 		// inference job_id
+		if len(input_list) != 2 {
+			log.Println("Invalid inference command [inference job_id]")
+			return
+
+		}
+		job_id := input_list[1]
+		job_id_int, err := strconv.Atoi(job_id)
+		if err != nil || (job_id != "0" && job_id != "1") {
+			log.Println("Invalid job_id (0, 1)")
+			return
+		}
+		_, err = client_model.ClientInferenceJob(MASTER_ADDRESS, job_id_int)
+		if err != nil {
+			log.Println("Received error inferencing from server")
+		}
+	case "remove":
+		// remove job_id
+		if len(input_list) != 2 {
+			log.Println("Invalid remove command [remove job_id]")
+			return
+
+		}
+		job_id := input_list[1]
+		job_id_int, err := strconv.Atoi(job_id)
+		if err != nil || (job_id != "0" && job_id != "1") {
+			log.Println("Invalid job_id (0, 1)")
+			return
+		}
+		_, err = client_model.ClientRemoveModel(MASTER_ADDRESS, job_id_int)
+		if err != nil {
+			log.Println("Received error removing job from server")
+		}
 	}
 
 }
@@ -1085,6 +1116,15 @@ func SchedulerServer() {
 					round_robin_running = false
 					fmt.Printf("Job for %v\n is DONE!", new_job.JobID)
 				}
+			} else if new_job.Action == utils.REMOVE {
+				membership_mutex.Lock()
+				mem_list, _ := GetMembershipList()
+				membership_mutex.Unlock()
+				mem_list = GetHostsFromID(mem_list)
+
+				SchedulerOutChannel <- utils.MLMessage{
+					Action:         utils.REMOVE,
+					MembershipList: mem_list}
 			}
 		}
 	}

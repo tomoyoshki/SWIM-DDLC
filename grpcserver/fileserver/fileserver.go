@@ -21,19 +21,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type JobStatus struct {
-	job_id                  int                 // Id of the job
-	batch_size              int                 // Batch size
-	num_workers             int                 // Number of workers doing this job
-	each_process_total_task int                 // Total test files in this job / num_workers
-	query_rate              float32             // Query rate
-	model_type              string              // Current job's model type
-	model_name              string              // Current job's model name
-	process_allocation      map[string]int      // Maps process to which i-th N/10 (assume num_workers = 10)
-	process_batch_progress  map[string]int      // Maps process to its current batch number in the job (which batch in each N/10)
-	process_test_files      map[string][]string // Maps process to its assigned test files (of length each_process_total_task)
-}
-
 var (
 	sdfsfile_directory string = "targets/"
 )
@@ -44,7 +31,7 @@ type Server struct {
 	scheduler_in_channel   chan utils.MLMessage
 	scheduler_out_channel  chan utils.MLMessage
 	new_introducer_channel chan string
-	grpc_node_channel      chan any
+	grpc_node_channel      chan map[int]utils.JobStatus
 	serverfileinfo         *[]string
 	storage                storage.Manager
 	fileproto.UnimplementedFileServiceServer
@@ -56,7 +43,7 @@ func NewServer(storage storage.Manager,
 	new_introducer_channel chan string,
 	SchedulerInChannel chan utils.MLMessage,
 	SchedulerOutChannel chan utils.MLMessage,
-	grpc_node_channel chan any,
+	grpc_node_channel chan map[int]utils.JobStatus,
 	serverfileinfo *[]string) Server {
 	log.Print("Creating new Server storage")
 	return Server{
@@ -254,12 +241,24 @@ func (s Server) StartInference(ctx context.Context, req *fileproto.JobRequest) (
 	return &response, nil
 }
 
+// client request server to start inferencing
+func (s Server) RequestRemove(ctx context.Context, req *fileproto.JobRequest) (*fileproto.JobResponse, error) {
+	response := fileproto.JobResponse{
+		Status: "OK",
+	}
+	s.scheduler_in_channel <- utils.MLMessage{
+		Action: int(utils.REMOVE),
+		JobID:  int(req.JobId),
+	}
+	return &response, nil
+}
+
 // Master requested to receive replication
 func (s Server) SendJobStatusReplication(ctx context.Context, req *fileproto.JobStatusRequest) (*fileproto.JobStatusResponse, error) {
 	response := fileproto.JobStatusResponse{
 		Status: "OK",
 	}
-	var new_job_status map[int]JobStatus
+	var new_job_status map[int]utils.JobStatus
 	gob.NewDecoder(bytes.NewReader(req.Info)).Decode(&new_job_status)
 	s.grpc_node_channel <- new_job_status
 	return &response, nil

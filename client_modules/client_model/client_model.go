@@ -45,13 +45,30 @@ func ClientStartJob(addr string, job_id int, batch_size int, model_type string) 
 func ClientInferenceJob(addr string, job_id int) (string, error) {
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Printf("ClientStartJob() did not connect: %v", err)
+		log.Printf("ClientInferenceJob() did not connect: %v", err)
 		return "", err
 	}
 	defer conn.Close()
 
 	client := fileclient.NewClient(conn, nil)
 	res_status, err := client.StartInference(context.Background(), job_id)
+	if res_status != "OK" {
+		log.Print("Failed to initialize model")
+	}
+	return res_status, err
+}
+
+// Client asks Server to remove Model with id = Job Id
+func ClientRemoveModel(addr string, job_id int) (string, error) {
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("ClientRemoveModel() did not connect: %v", err)
+		return "", err
+	}
+	defer conn.Close()
+
+	client := fileclient.NewClient(conn, nil)
+	res_status, err := client.RequestRemove(context.Background(), job_id)
 	if res_status != "OK" {
 		log.Print("Failed to initialize model")
 	}
@@ -173,7 +190,7 @@ func ClientRequestJobStatus(addr string, job_id int) (string, error) {
 		return "", err
 	}
 	defer conn.Close()
-	client := pythonclient.NewPythonClient(conn)
+	client := fileclient.NewClient(conn, nil)
 	res, err := client.RequestJobStatus(context.Background(), job_id)
 	return res, nil
 }
