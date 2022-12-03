@@ -945,6 +945,8 @@ func InitializeJobStatus(job_id int, model_name string, model_type string, batch
 	membership_mutex.Unlock()
 	N := len(mem_list)
 	new_status.NumWorkers = N
+	new_status.ProcessBatchProgress = make(map[string]int)
+	new_status.ProcessTestFiles = make(map[string][]string)
 	for _, process := range mem_list {
 		new_status.ProcessBatchProgress[process] = 0 // progress set to 0.
 	}
