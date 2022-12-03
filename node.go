@@ -597,13 +597,17 @@ func AskToIntroduce() {
 	utils.LogError(err, "Unable to Write to UDP connection to introducer in AskToIntroduce()", true)
 
 	response_buffer := make([]byte, 1024)
+	fmt.Println("Before reading")
 	_, err = connection.Read(response_buffer)
 	utils.LogError(err, "Unable to Read to UDP response from introducer in AskToIntroduce()", true)
+	fmt.Println("After reading")
 	response_buffer = bytes.Trim(response_buffer, "\x00")
 
+	fmt.Println("Resopsasdsd")
 	response, err := ConvertFromResponse(response_buffer)
 	utils.LogError(err, "Unable to Convert UDP Byte response to packet in AskToIntroduce()", true)
 
+	fmt.Println("Response: ", response)
 	/* If introducer acknowledges our join request */
 	if response.Packet_Type == JOINACK {
 		membership_list = response.Packet_PiggyBack
