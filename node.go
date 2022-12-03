@@ -110,14 +110,9 @@ const (
 )
 
 /* ------------------------ Scheduler Data Structures ------------------------  */
-
-/* Channel for receiving new jobs (command as list of strings) */
-var JobsQueue = make(chan utils.MLMessage)
-var batch_size_1 = 32
-var batch_size_2 = 32
 var ScheduleWaitGroup sync.WaitGroup
 var round_robin_running = false
-var jobs []int
+var running_jobs []int
 var current_job = -1 // Should iterate between 0 and 1, indicating current job
 var job_status = make(map[int]JobStatus)
 var dir_test_files_map = make(map[string][]string) // Maps a directory to its files
@@ -134,16 +129,16 @@ type TrainTask struct {
 }
 
 type JobStatus struct {
-	job_id                  int                 // Id of the job
-	batch_size              int                 // Batch size
-	num_workers             int                 // Number of workers doing this job
-	each_process_total_task int                 // Total test files in this job / num_workers
-	query_rate              float32             // Query rate
-	model_type              string              // Current job's model type
-	model_name              string              // Current job's model name
-	process_allocation      map[string]int      // Maps process to which i-th N/10 (assume num_workers = 10)
-	process_batch_progress  map[string]int      // Maps process to its current batch number in the job (which batch in each N/10)
-	process_test_files      map[string][]string // Maps process to its assigned test files (of length each_process_total_task)
+	job_id      int     // Id of the job
+	batch_size  int     // Batch size
+	num_workers int     // Number of workers doing this job
+	query_rate  float32 // Query rate
+	model_type  string  // Current job's model type
+	model_name  string  // Current job's model name
+	// process_allocation     map[string]int      // Maps process to which i-th N/10 (assume num_workers = 10)
+	// process_batch_progress map[string]int      // Maps process to its current batch number in the job (which batch in each N/10)
+	process_test_files map[string][]string // Maps process to its assigned test files (of length each_process_total_task)
+	task_queues        []string
 }
 
 var test_dir = []string{"test_data/images"}
@@ -906,7 +901,7 @@ func NewIntroducer() {
 }
 
 // TODO: Before allocation happens, must initialize the job status map!
-func InitializeJobStatus(job_id int, model_type string) {
+func InitializeJobStatus(job_id int, model_name string, model_type string, batch_size int) {
 	// Initializes the num_workers, batch_size, etc
 	// Calculates the total task for each process,
 	// Assigns appropriate test_files
@@ -915,152 +910,128 @@ func InitializeJobStatus(job_id int, model_type string) {
 	if _, ok := job_status[job_id]; ok {
 		delete(job_status, job_id)
 	}
-	var dir string
-	if model_type == "speech" {
-		dir = test_dir[0]
-	} else if model_type == "image" {
-		dir = test_dir[1]
-	} else {
-		panic("underfined model type")
-	}
-	all_files := dir_test_files_map[dir] // Gets all the test files under dir.
 
-	//! Fix the hardcoded batch_size_1 (if needed)
-	new_status := JobStatus{job_id: job_id, batch_size: batch_size_1, model_type: model_type}
+	// Gets all the test files under dir.
+	all_files := dir_test_files_map[test_dir[0]]
+
+	new_status := JobStatus{job_id: job_id, batch_size: batch_size, model_type: model_type}
+	membership_mutex.Lock()
 	mem_list, _ := GetMembershipList() //TODO: ADD LOCKING
+	membership_mutex.Unlock()
 	N := len(mem_list)
 	new_status.num_workers = N
-	new_status.each_process_total_task = len(all_files) / N
-	start, end := 0, 0
-	for i, process := range mem_list {
-		start = i * new_status.each_process_total_task
-		end = start + new_status.each_process_total_task
-		new_status.process_test_files[process] = all_files[start:end]
-		new_status.process_allocation[process] = i     // Assign batch number.
-		new_status.process_batch_progress[process] = 0 // progress set to 0.
-	}
+	// new_status.each_process_total_task = len(all_files) / N
+	// start, end := 0, 0
+	// for i, process := range mem_list {
+	// 	start = i * new_status.each_process_total_task
+	// 	end = start + new_status.each_process_total_task
+	// 	new_status.process_test_files[process] = all_files[start:end]
+	// 	new_status.process_allocation[process] = i     // Assign batch number.
+	// 	new_status.process_batch_progress[process] = 0 // progress set to 0.
+	// }
 	// Handle leftovers (total task per process alaways round down)
-	if end < len(all_files) {
-		last_process := mem_list[N-1]
-		for _, left_over := range all_files[end:] {
-			new_status.process_test_files[last_process] = append(new_status.process_test_files[last_process], left_over)
-		}
-	}
+
+	// if end < len(all_files) {
+	// 	last_process := mem_list[N-1]
+	// 	for _, left_over := range all_files[end:] {
+	// 		new_status.process_test_files[last_process] = append(new_status.process_test_files[last_process], left_over)
+	// 	}
+	// }
+	new_status.task_queues = make([]string, len(all_files))
+	copy(new_status.task_queues, all_files)
 	job_status[job_id] = new_status
 	log.Printf("Job id %v (model type: %v) initialized!", job_id, model_type)
 }
 
-// Keeps on sending test files for each process by batch.
-// TODO: TO BE DELETED ONCE RoundRobin IS DONE.
-func Allocate(process string, total_task int, batch int, testfiles []string) {
+// Called on the per-process basis: round-robins style allocation of test data for inferencing.
+// It will keep on sending test-files batch-by-batch to jobs alternatively.
+func RoundRobin(process string) {
 	defer ScheduleWaitGroup.Done()
-	// Fetch a batch at a time
-	for i := 0; i < total_task; i += batch {
-		if len(jobs) == 2 {
-			break
-		}
-		end := i + batch
-		if end >= total_task {
-			end = total_task - 1
-		}
-		current_batch := testfiles[i:end]
-		fmt.Printf("Current batch files: %v", current_batch)
-		// Array of current batch file's metadata
-		// files_replicas := make([]utils.FileMetaData, len(current_batch))
-		files_replicas := make(map[string]utils.FileMetaData)
-		// For each file in the batch, send it through channel.
-		for _, filename := range current_batch {
-			file_meta := file_metadata[filename]
-			files_replicas[filename] = file_meta
-		}
-		// TODO: Call askToReplicate and pass in files_replicas
-		// client.FetchBatchData(process, files_replicas)
-
-		log.Printf("Process %v's batch number %v is done! Moving on to the next batch.", process, i)
-	}
-
-	// Handle 2 jobs currently
-}
-
-// called on the per-process basis: round-robins style allocation
-// TODO: Change parameters. Inside len(jobs) == 1, should just use job_status datastructure to determine progress.
-func RoundRobin(process string, total_task int, batch int, testfiles []string) {
-	// defer ScheduleWaitGroup.Done()
 	for {
 		// job:= -1
-		if len(jobs) == 0 {
+		if len(running_jobs) == 0 {
 			current_job = -1
-			jobs = []int{} // Clear the jobs
 			break
-		} else if len(jobs) == 1 {
+		} else if len(running_jobs) == 1 {
 			// Just one job.
-			current_job = 0
-			// job := jobs[current_job]
-			process_total_task := job_status[current_job].each_process_total_task
-			test_files := job_status[current_job].process_test_files[process]
-			current_batch := job_status[current_job].process_batch_progress[process]
-			batch_size := job_status[current_job].batch_size
-			for start_index := current_batch * batch_size; start_index < process_total_task; start_index += batch_size {
-				if len(jobs) == 2 {
-					break
-				}
-				end := start_index + batch_size
-				if end >= process_total_task {
-					end = process_total_task - 1
-				}
-				current_batch := test_files[start_index:end]
-				fmt.Printf("Current batch files: %v", current_batch)
-				// Array of current batch file's metadata
-				// files_replicas := make([]utils.FileMetaData, len(current_batch))
-				files_replicas := make(map[string]utils.FileMetaData)
-				// For each file in the batch, send it through channel.
-				for _, filename := range current_batch {
-					file_meta := file_metadata[filename]
-					files_replicas[filename] = file_meta
-				}
-				// TODO: Call askToReplicate and pass in files_replicas
-				// client.FetchBatchData(process, files_replicas) // Wait until this finishes
-
-				log.Printf("Process %v's batch number %v is done! Moving on to the next batch.", process, start_index)
+			current_job = running_jobs[0]
+			current_job_status := job_status[current_job]
+			process_total_task := current_job_status.each_process_total_task
+			test_files := current_job_status.process_test_files[process]
+			current_batch := current_job_status.process_batch_progress[process]
+			batch_size := current_job_status.batch_size
+			start_index := current_batch * batch_size
+			end_index := start_index + batch_size
+			if end_index >= process_total_task {
+				end_index = process_total_task - 1
 			}
 
-		} else if len(jobs) == 2 {
-			// job := jobs[current_job]
+			current_batch_files := test_files[start_index:end_index]
+			fmt.Printf("Current batch files: %v", current_batch)
+			// Map of current batch file's metadata
+			files_replicas := make(map[string]utils.FileMetaData)
+			// For each file in the batch, send it through channel.
+			for _, filename := range current_batch_files {
+				file_meta := file_metadata[filename]
+				files_replicas[filename] = file_meta
+			}
+			// TODO: Call askToReplicate and pass in files_replicas
+			// client.FetchBatchData(process, files_replicas) // Wait until this finishes
 
+			// Update Status
+			new_batch := current_batch + 1
+			if new_batch*batch_size > process_total_task {
+				// TODO: Then this job is finished.
+				running_jobs = RemoveFromIntList(running_jobs, current_job)
+				current_job = -1
+				break // Now there is only one job left, continue
+			} else {
+				job_status[current_job].process_batch_progress[process] = new_batch
+			}
+			current_job = (current_job + 1) % 2 // 0 ->1 or 1 -> 0
+
+			log.Printf("Process %v's job %v's batch number %v is done! Moving on to the next batch.", process, current_batch, start_index)
+
+		} else if len(running_jobs) == 2 {
+			// Round robin between two jobs
 			for {
-				// Round robin between two jobs
-				process_total_task := job_status[current_job].each_process_total_task
-				test_files := job_status[current_job].process_test_files[process]
-				current_batch := job_status[current_job].process_batch_progress[process]
-				batch_size := job_status[current_job].batch_size
+				/* Get current job status info */
+				current_job_status := job_status[current_job]
+				process_total_task := current_job_status.each_process_total_task
+				test_files := current_job_status.process_test_files[process]
+				current_batch := current_job_status.process_batch_progress[process]
+				batch_size := current_job_status.batch_size
 				start_index := current_batch * batch_size
 				end_index := start_index + batch_size
 				if end_index >= process_total_task {
 					end_index = process_total_task - 1
 				}
-				// TODO: Fix testfiles; should put it into testfile
-				batch_files := test_files[start_index:end_index]
-				fmt.Printf("Current batch files: %v", current_batch)
+				/* Fetch test files for the current batch for this job. */
+				current_batch_files := test_files[start_index:end_index]
+				log.Printf("On Process %v, job %v: current batch number is: %v", process, current_job_status.job_id, current_batch)
 				// Array of current batch file's metadata
-				// files_replicas := make([]utils.FileMetaData, len(current_batch))
 				files_replicas := make(map[string]utils.FileMetaData)
 				// For each file in the batch, send it through channel.
-				for _, filename := range batch_files {
+				for _, filename := range current_batch_files {
 					file_meta := file_metadata[filename]
 					files_replicas[filename] = file_meta
 				}
+
+				// TODO: Call askToReplicate and pass in files_replicas
+				// client.FetchBatchData(process, files_replicas) // Wait until this finishes
 
 				// Update Status
 				new_batch := current_batch + 1
 				if new_batch*batch_size > process_total_task {
 					// TODO: Then this job is finished.
-					jobs = RemoveFromIntList(jobs, current_job)
-					current_job = 0
+					running_jobs = RemoveFromIntList(running_jobs, current_job)
+					current_job = -1
 					break // Now there is only one job left, continue
 				} else {
 					job_status[current_job].process_batch_progress[process] = new_batch
 				}
 				current_job = (current_job + 1) % 2 // 0 ->1 or 1 -> 0
+				log.Printf("Process %v's job %v's batch number %v is done! Moving on to the next batch.", process, current_batch, start_index)
 			}
 		}
 	}
@@ -1071,44 +1042,40 @@ func RoundRobin(process string, total_task int, batch int, testfiles []string) {
 func SchedulerServer() {
 	for {
 		select {
-		case new_job := <-JobsQueue:
+		case new_job := <-SchedulerInChannel:
 			if new_job.Action == utils.TRAIN {
-				// TODO: Initialize job status
+				log.Printf("New job with id %v for trainning!", new_job.JobID)
+				InitializeJobStatus(new_job.JobID, new_job.ModelName, new_job.ModelType, new_job.BatchSize)
+				membership_mutex.Lock()
+				mem_list, _ := GetMembershipList()
+				membership_mutex.Unlock()
+				mem_list = GetHostsFromID(mem_list)
 
+				SchedulerOutChannel <- utils.MLMessage{
+					Action:         utils.TRAIN,
+					MembershipList: mem_list}
+
+			} else if new_job.Action == utils.INFERENCE {
+				// TODO: Check if new_job.JobID is initialized yet. If not, return to user warning!
+				log.Printf("Job %v starts inferencing!", new_job.JobID)
+				// inference job_id
+				if round_robin_running {
+					running_jobs = append(running_jobs, new_job.JobID) // 2nd job
+				} else {
+					running_jobs = append(running_jobs, new_job.JobID) // 1st job
+					round_robin_running = true
+
+					members_host := GetHostsFromID(membership_list) // Get rid of timestamp
+					for _, process := range members_host {
+						ScheduleWaitGroup.Add(1)
+						// Allocate the test files for each process concurrently.
+						go RoundRobin(process)
+					}
+					ScheduleWaitGroup.Wait()
+					round_robin_running = false
+					fmt.Printf("Job for %v\n is DONE!", new_job.JobID)
+				}
 			}
-			log.Printf("New job received: %v", new_job)
-			// inference job_id
-			if round_robin_running {
-				// TODO FIX new job's name
-				jobs = append(jobs, 1) // 2nd job
-			} else {
-				jobs = append(jobs, 0) // 1st job
-				round_robin_running = true
-				// go RoundRobin()
-			}
-
-			// command format: run model_name test_set_path
-			// testset_directory := new_job[2]
-			// test_files := []string{}
-			// for file, _ := range file_metadata {
-			// 	if strings.HasPrefix(file, "/") {
-			// 		test_files = append(test_files, file)
-			// 	}
-			// }
-			// // log.Printf("Test files: %v", test_files)
-			// number_files := len(test_files)
-			// each_vm_tasks := number_files / len(membership_list)
-			// members_host := GetHostsFromID(membership_list) // Get rid of timestamp
-			// for i, process := range members_host {
-			// 	ScheduleWaitGroup.Add(1)
-			// 	// Allocate the test files for each process concurrently.
-			// 	start := i * each_vm_tasks
-			// 	end := i*each_vm_tasks + each_vm_tasks
-			// 	go Allocate(process, each_vm_tasks, batch_size_1, test_files[start:end])
-			// }
-			// ScheduleWaitGroup.Wait()
-
-			// fmt.Printf("Job for %v\n is DONE!", new_job[1])
 		}
 	}
 }
@@ -1202,18 +1169,6 @@ func MasterServer() {
 						Replicas: []string{""},
 						Version:  -1}
 				}
-			} else if client_order.Action == utils.TRAIN {
-				// Requested by Client to initialize train
-				membership_mutex.Lock()
-				mem_list, _ := GetMembershipList()
-				membership_mutex.Unlock()
-				for i := range mem_list {
-					mem_list[i] = ExtractIPFromID(mem_list[i])
-				}
-				MasterOutgoingChannel <- utils.ChannelOutMessage{
-					Action:   utils.TRAIN,
-					Replicas: mem_list,
-					Version:  -1}
 			}
 			// MasterFailChannel is filled after the failed_process is deleted
 		case failed_process := <-MasterFailChannel:
