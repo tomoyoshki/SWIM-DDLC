@@ -283,7 +283,7 @@ func (s Server) SendJobInformation(ctx context.Context, req *fileproto.JobInform
 		for _, replica := range replicas {
 			local_file_name := file_prefix + "test/" + file_name
 			log.Printf("Replica: %v\n, filename: %v", replica, file_name)
-			err := client.ClientDownload(replica, "../"+local_file_name, file_name)
+			err := client.ClientDownload(replica+":3333", "../"+local_file_name, file_name)
 			if err == nil {
 				break
 			}

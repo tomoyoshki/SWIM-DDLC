@@ -967,12 +967,12 @@ func InitializeJobStatus(job_id int, model_name string, model_type string, batch
 // It will keep on sending test-files batch-by-batch to jobs alternatively.
 func RoundRobin(process string) {
 	// defer ScheduleWaitGroup.Done()
-	
+
 	for {
 		current_number_of_jobs := 0
 		jobs_lock.Lock()
 		current_number_of_jobs = len(running_jobs)
-		log.Printf("current_number_of_jobs is %v",  current_number_of_jobs)
+		log.Printf("current_number_of_jobs is %v", current_number_of_jobs)
 		jobs_lock.Unlock()
 		if current_number_of_jobs == 0 {
 			round_robin_running = false
