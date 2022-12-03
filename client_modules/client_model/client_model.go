@@ -41,7 +41,7 @@ func ClientInferenceJob(addr string, job_id int) (string, error) {
 	client := fileclient.NewClient(conn, nil)
 	res_status, err := client.StartInference(context.Background(), job_id)
 	if res_status != "OK" {
-		log.Print("Failed to initialize model")
+		log.Print("Failed to inference on model")
 	}
 	return res_status, err
 }

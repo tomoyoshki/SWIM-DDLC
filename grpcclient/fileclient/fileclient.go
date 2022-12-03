@@ -195,7 +195,7 @@ func (c Client) StartJob(ctx context.Context, job_id int, batch_size int, model_
 func (c Client) StartInference(ctx context.Context, job_id int) (string, error) {
 	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
 	defer cancel()
-	res, err := c.client.StartJob(ctx, &fileproto.JobRequest{
+	res, err := c.client.StartInference(ctx, &fileproto.JobRequest{
 		JobId: int32(job_id),
 	})
 	if err != nil {
