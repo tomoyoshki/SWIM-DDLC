@@ -149,8 +149,8 @@ class GoPythonServer(GoPythonServicer):
         else:
             logging.info("Invalid model")
 
-        shutil.rmtree(f'python/data/{request.job_id}')
-        shutil.rmtree(f'python.result/{request.job_id}')
+        shutil.rmtree(f'./python/data/{request.job_id}')
+        shutil.rmtree(f'./python/result/{request.job_id}')
 
 
     
@@ -168,7 +168,7 @@ class GoPythonServer(GoPythonServicer):
 
         with open(result_directory + "result.txt", "w") as f:
             for line in result:
-                f.write("%s\n", line)
+                f.write("%s\n" % line)
 
         res = json.dumps(result).encode('utf-8')
         resp = InferenceResponse(status="OK", inference_result=res)
@@ -177,9 +177,9 @@ class GoPythonServer(GoPythonServicer):
 
 
 if __name__ == '__main__':
-    os.remove("python_log.log")
+    os.remove("./python_log.log")
     logging.basicConfig(
-        filename="python_log.log",
+        filename="./python_log.log",
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
     )
