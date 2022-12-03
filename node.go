@@ -958,6 +958,7 @@ func RoundRobin(process string) {
 		} else if current_number_of_jobs == 1 {
 			// Just one job.
 			current_job := process_current_job[process]
+			job_status[current_job].task_lock.Lock()
 			current_job_status := job_status[current_job]
 			batch_size := job_status[current_job].batch_size
 			current_batch_files := []string{}
@@ -966,7 +967,7 @@ func RoundRobin(process string) {
 			queue := current_job_status.task_queues
 			if len(queue) == 0 {
 				/* No more tasks to do for this job. Done! */
-				current_job_status.task_lock.Unlock()
+				job_status[current_job].task_lock.Unlock()
 				jobs_lock.Lock()
 				running_jobs = RemoveFromIntList(running_jobs, current_job)
 				jobs_lock.Unlock()
@@ -983,7 +984,7 @@ func RoundRobin(process string) {
 			current_job_status.process_test_files[process] = current_batch_files
 			// Update the global job status.
 			job_status[current_job] = current_job_status
-			current_job_status.task_lock.Unlock()
+			job_status[current_job].task_lock.Unlock()
 
 			log.Printf("Current batch files: %v", current_batch_files)
 			// Map of current batch file's metadata
@@ -1006,14 +1007,15 @@ func RoundRobin(process string) {
 			for {
 				/* Get current job status info */
 				current_job := process_current_job[process]
+				job_status[current_job].task_lock.Lock()
 				current_job_status := job_status[current_job]
 				batch_size := current_job_status.batch_size
 				current_batch_files := []string{}
-				current_job_status.task_lock.Lock()
+
 				queue := current_job_status.task_queues
 				if len(queue) == 0 {
 					/* No more tasks to do for this job. Done! */
-					current_job_status.task_lock.Unlock()
+					job_status[current_job].task_lock.Unlock()
 					jobs_lock.Lock()
 					running_jobs = RemoveFromIntList(running_jobs, current_job)
 					jobs_lock.Unlock()
@@ -1033,7 +1035,7 @@ func RoundRobin(process string) {
 				// Update the current process' in-progress work.
 				current_job_status.process_test_files[process] = current_batch_files
 				job_status[current_job] = current_job_status
-				current_job_status.task_lock.Unlock()
+				job_status[current_job].task_lock.Unlock()
 
 				log.Printf("Current batch files: %v", current_batch_files)
 				// Map of current batch file's metadata
