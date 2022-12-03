@@ -179,11 +179,14 @@ class GoPythonServer(GoPythonServicer):
 
 
 if __name__ == '__main__':
-    os.remove("./python_log.log")
-    os.remove("./python/data")
-    shutil.rmtree("./python/data")
-    shutil.rmtree("./python/result")
-    shutil.rmtree("./python/results")
+    if os.path.exists("./python_log.log"):
+        os.remove("./python_log.log")
+    if os.path.exists("./python/data"):
+        shutil.rmtree("./python/data")
+    if os.path.exists("./python/result"):
+        shutil.rmtree("./python/result",  ignore_errors=True)
+    if os.path.exists("./python/results"):
+        shutil.rmtree("./python/results",  ignore_errors=True)
     logging.basicConfig(
         filename="./python_log.log",
         level=logging.INFO,
