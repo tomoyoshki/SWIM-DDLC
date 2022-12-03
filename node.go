@@ -69,7 +69,6 @@ var MasterFailChannel = make(chan string)
 /* Messages for new process joining */
 var MasterNewChannel = make(chan []string)
 
-//
 var grpc_node_channel = make(chan any)
 
 /* Messages for ending master server */
@@ -955,7 +954,6 @@ func RoundRobin(process string) {
 		current_number_of_jobs = len(running_jobs)
 		jobs_lock.Unlock()
 		if current_number_of_jobs == 0 {
-			// current_job = -1
 			break
 		} else if current_number_of_jobs == 1 {
 			// Just one job.
@@ -996,11 +994,10 @@ func RoundRobin(process string) {
 				files_replicas[filename] = file_meta
 			}
 			// TODO: Call askToReplicate and pass in files_replicas
-			// client.FetchBatchData(process, files_replicas) // Wait until this finishes
-			client_model.SendInferenceInformation(process+"3333", current_job, job_status[current_job].process_batch_progress[process], files_replicas)
+			current_batch := job_status[current_job].process_batch_progress[process]
+			client_model.SendInferenceInformation(process+"3333", current_job, current_batch, files_replicas)
 
 			// Update process batch progress
-			current_batch := job_status[current_job].process_batch_progress[process]
 			job_status[current_job].process_batch_progress[process] = current_batch + 1
 			log.Printf("Process %v's job %v's batch number %v is done! Moving on to the next batch.", process, current_job, current_batch)
 
@@ -1028,30 +1025,29 @@ func RoundRobin(process string) {
 					queue = queue[batch_size:]
 					// Update remaining tasks
 					current_job_status.task_queues = queue
-					job_status[current_job] = current_job_status
 				} else {
 					current_batch_files = queue[:]
 					// Finish all the remaining tasks.
 					current_job_status.task_queues = nil
-					job_status[current_job] = current_job_status
 				}
-				current_job_status.task_lock.Unlock()
 				// Update the current process' in-progress work.
 				current_job_status.process_test_files[process] = current_batch_files
+				job_status[current_job] = current_job_status
+				current_job_status.task_lock.Unlock()
 
 				log.Printf("Current batch files: %v", current_batch_files)
 				// Map of current batch file's metadata
-				files_replicas := make(map[string]utils.FileMetaData)
+				files_replicas := make(map[string][]string)
 				// For each file in the batch, send it through channel.
 				for _, filename := range current_batch_files {
-					file_meta := file_metadata[filename]
+					file_meta := file_metadata[filename].Replicas
 					files_replicas[filename] = file_meta
 				}
 				// TODO: Call askToReplicate and pass in files_replicas
-				// client.FetchBatchData(process, files_replicas) // Wait until this finishes
+				current_batch := job_status[current_job].process_batch_progress[process]
+				client_model.SendInferenceInformation(process+"3333", current_job, current_batch, files_replicas)
 
 				// Update process batch progress
-				current_batch := job_status[current_job].process_batch_progress[process]
 				job_status[current_job].process_batch_progress[process] = current_batch + 1
 				// Move on to the next job.
 				next_job := (current_job + 1) % 2 // 0 ->1 or 1 -> 0
