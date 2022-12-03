@@ -163,9 +163,8 @@ class GoPythonServer(GoPythonServicer):
         result = processData(job_id, batch_id, inference_data_folder)
 
 
-        result_directory = f"/python/result/{job_id}/{batch_id}/"
-        path = Path(result_directory)
-        path.mkdir(parents=True)
+        result_directory = f"./python/result/{job_id}/{batch_id}/"
+        os.makedirs(result_directory)
 
         with open(result_directory + "result.txt", "w") as f:
             for line in result:
