@@ -113,7 +113,10 @@ const (
 var ScheduleWaitGroup sync.WaitGroup
 var round_robin_running = false
 var running_jobs []int
-var current_job = -1 // Should iterate between 0 and 1, indicating current job
+var jobs_lock sync.Mutex
+var job1_queue_lock sync.Mutex
+var job2_queue_lock sync.Mutex
+var process_current_job = make(map[string]int) // Maps process to the job ID it is currently working on
 var job_status = make(map[int]JobStatus)
 var dir_test_files_map = make(map[string][]string) // Maps a directory to its files
 
@@ -136,9 +139,10 @@ type JobStatus struct {
 	model_type  string  // Current job's model type
 	model_name  string  // Current job's model name
 	// process_allocation     map[string]int      // Maps process to which i-th N/10 (assume num_workers = 10)
-	// process_batch_progress map[string]int      // Maps process to its current batch number in the job (which batch in each N/10)
-	process_test_files map[string][]string // Maps process to its assigned test files (of length each_process_total_task)
-	task_queues        []string
+	process_batch_progress map[string]int      // Maps process to its current batch number in the job (which batch in each N/10)
+	process_test_files     map[string][]string // Maps process to its assigned test files (of length each_process_total_task)
+	task_queues            []string
+	task_lock              *sync.Mutex
 }
 
 var test_dir = []string{"test_data/images"}
@@ -914,29 +918,22 @@ func InitializeJobStatus(job_id int, model_name string, model_type string, batch
 	// Gets all the test files under dir.
 	all_files := dir_test_files_map[test_dir[0]]
 
-	new_status := JobStatus{job_id: job_id, batch_size: batch_size, model_type: model_type}
+	new_status := JobStatus{job_id: job_id, batch_size: batch_size, model_type: model_type, model_name: model_name}
 	membership_mutex.Lock()
-	mem_list, _ := GetMembershipList() //TODO: ADD LOCKING
+	mem_list, _ := GetMembershipList()
 	membership_mutex.Unlock()
 	N := len(mem_list)
 	new_status.num_workers = N
-	// new_status.each_process_total_task = len(all_files) / N
-	// start, end := 0, 0
-	// for i, process := range mem_list {
-	// 	start = i * new_status.each_process_total_task
-	// 	end = start + new_status.each_process_total_task
-	// 	new_status.process_test_files[process] = all_files[start:end]
-	// 	new_status.process_allocation[process] = i     // Assign batch number.
-	// 	new_status.process_batch_progress[process] = 0 // progress set to 0.
-	// }
+	for _, process := range mem_list {
+		new_status.process_batch_progress[process] = 0 // progress set to 0.
+	}
 	// Handle leftovers (total task per process alaways round down)
+	if job_id == 0 {
+		new_status.task_lock = &job1_queue_lock
+	} else {
+		new_status.task_lock = &job2_queue_lock
+	}
 
-	// if end < len(all_files) {
-	// 	last_process := mem_list[N-1]
-	// 	for _, left_over := range all_files[end:] {
-	// 		new_status.process_test_files[last_process] = append(new_status.process_test_files[last_process], left_over)
-	// 	}
-	// }
 	new_status.task_queues = make([]string, len(all_files))
 	copy(new_status.task_queues, all_files)
 	job_status[job_id] = new_status
@@ -948,26 +945,44 @@ func InitializeJobStatus(job_id int, model_name string, model_type string, batch
 func RoundRobin(process string) {
 	defer ScheduleWaitGroup.Done()
 	for {
-		// job:= -1
-		if len(running_jobs) == 0 {
-			current_job = -1
+		current_number_of_jobs := 0
+		jobs_lock.Lock()
+		current_number_of_jobs = len(running_jobs)
+		jobs_lock.Unlock()
+		if current_number_of_jobs == 0 {
+			// current_job = -1
 			break
-		} else if len(running_jobs) == 1 {
+		} else if current_number_of_jobs == 1 {
 			// Just one job.
-			current_job = running_jobs[0]
+			current_job := process_current_job[process]
 			current_job_status := job_status[current_job]
-			process_total_task := current_job_status.each_process_total_task
-			test_files := current_job_status.process_test_files[process]
-			current_batch := current_job_status.process_batch_progress[process]
-			batch_size := current_job_status.batch_size
-			start_index := current_batch * batch_size
-			end_index := start_index + batch_size
-			if end_index >= process_total_task {
-				end_index = process_total_task - 1
-			}
+			batch_size := job_status[current_job].batch_size
+			current_batch_files := []string{}
 
-			current_batch_files := test_files[start_index:end_index]
-			fmt.Printf("Current batch files: %v", current_batch)
+			current_job_status.task_lock.Lock()
+			queue := current_job_status.task_queues
+			if len(queue) == 0 {
+				/* No more tasks to do for this job. Done! */
+				current_job_status.task_lock.Unlock()
+				jobs_lock.Lock()
+				running_jobs = RemoveFromIntList(running_jobs, current_job)
+				jobs_lock.Unlock()
+				break
+			} else if len(queue) > batch_size {
+				current_batch_files = queue[:batch_size]
+				queue = queue[batch_size:]
+				current_job_status.task_queues = queue
+			} else {
+				current_batch_files = current_job_status.task_queues[:]
+				current_job_status.task_queues = nil
+			}
+			// Update the current process' in-progress work.
+			current_job_status.process_test_files[process] = current_batch_files
+			// Update the global job status.
+			job_status[current_job] = current_job_status
+			current_job_status.task_lock.Unlock()
+
+			log.Printf("Current batch files: %v", current_batch_files)
 			// Map of current batch file's metadata
 			files_replicas := make(map[string]utils.FileMetaData)
 			// For each file in the batch, send it through channel.
@@ -978,60 +993,64 @@ func RoundRobin(process string) {
 			// TODO: Call askToReplicate and pass in files_replicas
 			// client.FetchBatchData(process, files_replicas) // Wait until this finishes
 
-			// Update Status
-			new_batch := current_batch + 1
-			if new_batch*batch_size > process_total_task {
-				// TODO: Then this job is finished.
-				running_jobs = RemoveFromIntList(running_jobs, current_job)
-				current_job = -1
-				break // Now there is only one job left, continue
-			} else {
-				job_status[current_job].process_batch_progress[process] = new_batch
-			}
-			current_job = (current_job + 1) % 2 // 0 ->1 or 1 -> 0
+			// Update process batch progress
+			current_batch := job_status[current_job].process_batch_progress[process]
+			job_status[current_job].process_batch_progress[process] = current_batch + 1
+			log.Printf("Process %v's job %v's batch number %v is done! Moving on to the next batch.", process, current_job, current_batch)
 
-			log.Printf("Process %v's job %v's batch number %v is done! Moving on to the next batch.", process, current_batch, start_index)
-
-		} else if len(running_jobs) == 2 {
+		} else if current_number_of_jobs == 2 {
 			// Round robin between two jobs
 			for {
 				/* Get current job status info */
+				current_job := process_current_job[process]
 				current_job_status := job_status[current_job]
-				process_total_task := current_job_status.each_process_total_task
-				test_files := current_job_status.process_test_files[process]
-				current_batch := current_job_status.process_batch_progress[process]
 				batch_size := current_job_status.batch_size
-				start_index := current_batch * batch_size
-				end_index := start_index + batch_size
-				if end_index >= process_total_task {
-					end_index = process_total_task - 1
+				current_batch_files := []string{}
+				current_job_status.task_lock.Lock()
+				queue := current_job_status.task_queues
+				if len(queue) == 0 {
+					/* No more tasks to do for this job. Done! */
+					current_job_status.task_lock.Unlock()
+					jobs_lock.Lock()
+					running_jobs = RemoveFromIntList(running_jobs, current_job)
+					jobs_lock.Unlock()
+					// Set the process' next job to the remaining job.
+					process_current_job[process] = (current_job + 1) % 2
+					break
+				} else if len(queue) > batch_size {
+					current_batch_files = queue[:batch_size]
+					queue = queue[batch_size:]
+					// Update remaining tasks
+					current_job_status.task_queues = queue
+					job_status[current_job] = current_job_status
+				} else {
+					current_batch_files = queue[:]
+					// Finish all the remaining tasks.
+					current_job_status.task_queues = nil
+					job_status[current_job] = current_job_status
 				}
-				/* Fetch test files for the current batch for this job. */
-				current_batch_files := test_files[start_index:end_index]
-				log.Printf("On Process %v, job %v: current batch number is: %v", process, current_job_status.job_id, current_batch)
-				// Array of current batch file's metadata
+				current_job_status.task_lock.Unlock()
+				// Update the current process' in-progress work.
+				current_job_status.process_test_files[process] = current_batch_files
+
+				log.Printf("Current batch files: %v", current_batch_files)
+				// Map of current batch file's metadata
 				files_replicas := make(map[string]utils.FileMetaData)
 				// For each file in the batch, send it through channel.
 				for _, filename := range current_batch_files {
 					file_meta := file_metadata[filename]
 					files_replicas[filename] = file_meta
 				}
-
 				// TODO: Call askToReplicate and pass in files_replicas
 				// client.FetchBatchData(process, files_replicas) // Wait until this finishes
 
-				// Update Status
-				new_batch := current_batch + 1
-				if new_batch*batch_size > process_total_task {
-					// TODO: Then this job is finished.
-					running_jobs = RemoveFromIntList(running_jobs, current_job)
-					current_job = -1
-					break // Now there is only one job left, continue
-				} else {
-					job_status[current_job].process_batch_progress[process] = new_batch
-				}
-				current_job = (current_job + 1) % 2 // 0 ->1 or 1 -> 0
-				log.Printf("Process %v's job %v's batch number %v is done! Moving on to the next batch.", process, current_batch, start_index)
+				// Update process batch progress
+				current_batch := job_status[current_job].process_batch_progress[process]
+				job_status[current_job].process_batch_progress[process] = current_batch + 1
+				// Move on to the next job.
+				next_job := (current_job + 1) % 2 // 0 ->1 or 1 -> 0
+				process_current_job[process] = next_job
+				log.Printf("Process %v's job %v's batch number %v is done! Moving on to the next batch.", process, current_job_status.job_id, current_batch)
 			}
 		}
 	}
