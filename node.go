@@ -161,7 +161,7 @@ func load_test_set() {
 		}
 		dir_test_files_map[directory] = all_files
 	}
-	utils.FormatPrint(fmt.Sprintf("Finished loading test dataset\n=\tLoaded %v data in total", count))
+	utils.FormatPrint(fmt.Sprintf("Finished loading test dataset\n=\t Loaded %v data in total", count))
 }
 
 func main() {

@@ -52,12 +52,12 @@ def prepareModel(job_id, batch_size, model_type):
             if model_type == "image":
                 model1 = models.resnet50(pretrained=False)
                 model1.load_state_dict(torch.load("./python/resnet50.pth"))
-                model1.eval()
             elif model_type == "speech":
                 model1 = torch.hub.load('pytorch/fairseq', 'transformer.wmt14.en-fr', tokenizer='moses', bpe='subword_nmt')
             else:
                 logging.info("Received bad model type")
                 return -1
+            model1.eval()
             model1_initialized = True
         else:
             logging.info("Model1 is currently occupied")
@@ -68,13 +68,13 @@ def prepareModel(job_id, batch_size, model_type):
             if model_type == "image":
                 model2 = models.resnet50(pretrained=False)
                 model2.load_state_dict(torch.load("./python/resnet50.pth"))
-                model2_initialized = True
             elif model_type == "speech":
                 model2 = torch.hub.load('pytorch/fairseq', 'transformer.wmt14.en-fr', tokenizer='moses', bpe='subword_nmt')
-                model2_initialized = True
             else:
                 logging.info("Received bad model type")
                 return -1
+            model2.eval()
+            model2_initialized = True
         else:
             logging.info("Model2 is currently occupied")
             return -2
@@ -109,6 +109,12 @@ def processData(job_id, batch_id, data_folder):
         return inference_result
     else:
         logging.info("Speech inferencing")
+
+def checkfile_validity(dir, create=False):
+    if os.path.exists(dir):
+        shutil.rmtree(dir)
+    if create:
+        os.makedirs(dir)
 
     
 class GoPythonServer(GoPythonServicer):
@@ -162,15 +168,13 @@ class GoPythonServer(GoPythonServicer):
         inference_data_folder = request.inference_data_folder
         result = processData(job_id, batch_id, inference_data_folder)
 
-        print(result)
+        result_directory = f"./python/result/{job_id}/{batch_id}/"
 
+        checkfile_validity(result_directory, True)
 
-        # result_directory = f"./python/result/{job_id}/{batch_id}/"
-        # os.makedirs(result_directory)
-
-        # with open(result_directory + "result.txt", "w") as f:
-        #     for line in result:
-        #         f.write("%s\n" % line)
+        with open(result_directory + "result.txt", "w") as f:
+            for input_filename in result:
+                f.write("%s: %s\n" % (input_filename, result[input_filename]))
 
         res = json.dumps(result).encode('utf-8')
         resp = InferenceResponse(status="OK", inference_result=res)
@@ -181,12 +185,12 @@ class GoPythonServer(GoPythonServicer):
 if __name__ == '__main__':
     if os.path.exists("./python_log.log"):
         os.remove("./python_log.log")
-    if os.path.exists("./python/data"):
-        shutil.rmtree("./python/data")
-    if os.path.exists("./python/result"):
-        shutil.rmtree("./python/result",  ignore_errors=True)
-    if os.path.exists("./python/results"):
-        shutil.rmtree("./python/results",  ignore_errors=True)
+    
+
+    checkfile_validity("./python/data")
+    checkfile_validity("./python/result")
+    checkfile_validity("./python/results")
+
     logging.basicConfig(
         filename="./python_log.log",
         level=logging.INFO,

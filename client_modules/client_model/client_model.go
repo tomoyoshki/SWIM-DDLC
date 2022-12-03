@@ -146,7 +146,7 @@ func AskToInference(addr string, job_id int, batch_id int, inference_size int, d
 func AskMemberToRemoveModels(addr string, job_id int) (string, error) {
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Printf("AskToInference() did not connect: %v", err)
+		log.Printf("AskMemberToRemoveModels() did not connect: %v", err)
 		return "", err
 	}
 	defer conn.Close()

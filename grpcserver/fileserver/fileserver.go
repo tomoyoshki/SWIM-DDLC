@@ -280,12 +280,11 @@ func (s Server) SendJobInformation(ctx context.Context, req *fileproto.JobInform
 
 	// Tell python to inference and get the result
 	res, err := client_model.AskToInference("localhost:9999", int(req.JobId), int(req.BatchId), len(file_replicas), file_prefix)
-	log.Print("Done inferencing")
 	if err != nil {
 		response.Status = "Failed to inference"
 		return &response, err
 	}
-	log.Print("Have a result to send back")
+	log.Printf("Inference for Job %v with Batch %d is done", req.JobId, req.BatchId)
 	response.InferenceResult = res
 	return &response, nil
 }
