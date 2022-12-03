@@ -235,6 +235,8 @@ func (s Server) StartInference(ctx context.Context, req *fileproto.JobRequest) (
 	response := fileproto.JobResponse{
 		Status: "OK",
 	}
+
+	log.Printf("Action: %v\nJobID: %v", utils.INFERENCE, req.JobId)
 	s.scheduler_in_channel <- utils.MLMessage{
 		Action: int(utils.INFERENCE),
 		JobID:  int(req.JobId),
