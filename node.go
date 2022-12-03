@@ -967,10 +967,12 @@ func InitializeJobStatus(job_id int, model_name string, model_type string, batch
 // It will keep on sending test-files batch-by-batch to jobs alternatively.
 func RoundRobin(process string) {
 	// defer ScheduleWaitGroup.Done()
+	
 	for {
 		current_number_of_jobs := 0
 		jobs_lock.Lock()
 		current_number_of_jobs = len(running_jobs)
+		log.Printf("current_number_of_jobs is %v",  current_number_of_jobs)
 		jobs_lock.Unlock()
 		if current_number_of_jobs == 0 {
 			round_robin_running = false
@@ -980,6 +982,7 @@ func RoundRobin(process string) {
 		} else if current_number_of_jobs == 1 {
 			// Just one job.
 			current_job := process_current_job[process]
+			log.Printf("On process %v: Job %v", process, current_job)
 			job_status[current_job].TaskLock.Lock()
 			current_job_status := job_status[current_job]
 			batch_size := job_status[current_job].BatchSize
@@ -1110,7 +1113,7 @@ func SchedulerServer() {
 
 					running_jobs = append(running_jobs, new_job.JobID) // 1st job
 					round_robin_running = true
-
+					log.Printf("The running job is running_jobs", running_jobs)
 					members_host := GetHostsFromID(membership_list) // Get rid of timestamp
 					for _, process := range members_host {
 						// ScheduleWaitGroup.Add(1)
