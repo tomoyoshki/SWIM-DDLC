@@ -11,9 +11,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// // Client asks Server to setup the model in all virtual machines
+// Client asks Server to setup the model in all virtual machines
 func ClientStartJob(addr string, job_id int, batch_size int, model_type string) (string, error) {
-	log.Printf("Client requesting to start job")
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Printf("ClientStartJob() did not connect: %v", err)
@@ -23,6 +22,24 @@ func ClientStartJob(addr string, job_id int, batch_size int, model_type string) 
 
 	client := fileclient.NewClient(conn, nil)
 	res_status, err := client.StartJob(context.Background(), job_id, batch_size, model_type)
+	if res_status != "OK" {
+		log.Print("Failed to initialize model")
+	}
+	return res_status, err
+}
+
+
+// Client asks Server to start inferencing on Model with id = Job Id
+func ClientInferenceJob(addr string, job_id int) (string, error) {
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("ClientStartJob() did not connect: %v", err)
+		return "", err
+	}
+	defer conn.Close()
+
+	client := fileclient.NewClient(conn, nil)
+	res_status, err := client.(context.Background(), job_id)
 	if res_status != "OK" {
 		log.Print("Failed to initialize model")
 	}
@@ -94,6 +111,7 @@ func AskToInference(addr string, job_id int, batch_id int, inference_size int, d
 	return res_status, nil
 }
 
+// Server ask each member to remove models
 func AskMemberToRemoveModels(addr string, job_id int) (string, error) {
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -106,6 +124,7 @@ func AskMemberToRemoveModels(addr string, job_id int) (string, error) {
 	return res, nil
 }
 
+// Go Member ask PythonS erver to remove models
 func AskToRemoveModels(addr string, job_id int) (string, error) {
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {

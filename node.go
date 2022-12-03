@@ -60,7 +60,8 @@ var MasterIncommingChannel = make(chan utils.ChannelInMessage)
 var MasterOutgoingChannel = make(chan utils.ChannelOutMessage)
 
 // Message for Scheduler and GRPC
-var SchedulerMLChannel = make(chan utils.MLMessage)
+var SchedulerInChannel = make(chan utils.MLMessage)
+var SchedulerOutChannel = make(chan utils.MLMessage)
 
 /* Messages for failed process' information */
 var MasterFailChannel = make(chan string)
@@ -222,13 +223,13 @@ func main() {
 			if this_host == INTRODUCER_IP {
 				/* Setup the introducer */
 				go IntroduceServer()
-				go server.Server(MASTER_PORT_NUMBER, MasterIncommingChannel, MasterOutgoingChannel, filesystem_finish_channel, new_introducer_channel, SchedulerMLChannel, &server_files)
+				go server.Server(MASTER_PORT_NUMBER, MasterIncommingChannel, MasterOutgoingChannel, filesystem_finish_channel, new_introducer_channel, SchedulerInChannel, SchedulerOutChannel, &server_files)
 				go MasterServer()
 			} else {
 				/* Setup client and request to the introducer */
 				go AskToIntroduce()
 				go NewIntroducer()
-				go server.Server(MASTER_PORT_NUMBER, MasterIncommingChannel, MasterOutgoingChannel, filesystem_finish_channel, new_introducer_channel, SchedulerMLChannel, &server_files)
+				go server.Server(MASTER_PORT_NUMBER, MasterIncommingChannel, MasterOutgoingChannel, filesystem_finish_channel, new_introducer_channel, SchedulerInChannel, SchedulerOutChannel, &server_files)
 			}
 		} else if input == "leave" {
 			user_leave = true

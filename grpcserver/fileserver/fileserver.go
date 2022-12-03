@@ -28,19 +28,27 @@ var (
 type Server struct {
 	input_channel          chan utils.ChannelInMessage
 	output_channel         chan utils.ChannelOutMessage
-	scheduler_channel      chan utils.MLMessage
+	scheduler_in_channel   chan utils.MLMessage
+	scheduler_out_channel  chan utils.MLMessage
 	new_introducer_channel chan string
 	serverfileinfo         *[]string
 	storage                storage.Manager
 	fileproto.UnimplementedFileServiceServer
 }
 
-func NewServer(storage storage.Manager, input_channel chan utils.ChannelInMessage, output_channel chan utils.ChannelOutMessage, new_introducer_channel chan string, SchedulerMLChannel chan utils.MLMessage, serverfileinfo *[]string) Server {
+func NewServer(storage storage.Manager,
+	input_channel chan utils.ChannelInMessage,
+	output_channel chan utils.ChannelOutMessage,
+	new_introducer_channel chan string,
+	SchedulerInChannel chan utils.MLMessage,
+	SchedulerOutChannel chan utils.MLMessage,
+	serverfileinfo *[]string) Server {
 	log.Print("Creating new Server storage")
 	return Server{
 		input_channel:          input_channel,
 		output_channel:         output_channel,
-		scheduler_channel:      SchedulerMLChannel,
+		scheduler_in_channel:   SchedulerInChannel,
+		scheduler_out_channel:  SchedulerOutChannel,
 		new_introducer_channel: new_introducer_channel,
 		serverfileinfo:         serverfileinfo,
 		storage:                storage,
@@ -198,14 +206,14 @@ func (s Server) StartJob(ctx context.Context, req *fileproto.JobRequest) (*filep
 	response := fileproto.JobResponse{
 		Status: "OK",
 	}
-	s.scheduler_channel <- utils.MLMessage{
+	s.scheduler_in_channel <- utils.MLMessage{
 		Action:    int(utils.TRAIN),
 		JobID:     int(req.JobId),
 		ModelType: req.ModelType,
 		BatchSize: int(req.BatchSize),
 	}
 
-	out, _ := <-s.scheduler_channel
+	out, _ := <-s.scheduler_out_channel
 
 	var err error
 	for _, member := range out.MembershipList {
