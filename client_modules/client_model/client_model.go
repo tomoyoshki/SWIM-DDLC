@@ -11,6 +11,19 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+type JobStatus struct {
+	job_id                  int                 // Id of the job
+	batch_size              int                 // Batch size
+	num_workers             int                 // Number of workers doing this job
+	each_process_total_task int                 // Total test files in this job / num_workers
+	query_rate              float32             // Query rate
+	model_type              string              // Current job's model type
+	model_name              string              // Current job's model name
+	process_allocation      map[string]int      // Maps process to which i-th N/10 (assume num_workers = 10)
+	process_batch_progress  map[string]int      // Maps process to its current batch number in the job (which batch in each N/10)
+	process_test_files      map[string][]string // Maps process to its assigned test files (of length each_process_total_task)
+}
+
 // Client asks Server to setup the model in all virtual machines
 func ClientStartJob(addr string, job_id int, batch_size int, model_type string) (string, error) {
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -73,11 +86,27 @@ func AskMemberToInitializeModels(addr string, job_id int, batch_size int, model_
 	defer conn.Close()
 	client := fileclient.NewClient(conn, nil)
 	res, err := client.AskMemberToInitializeModels(context.Background(), job_id, batch_size, model_type)
-	if res != "OK" {
+	if err != nil || res != "OK" {
 		log.Printf("AskMemberToInitializeModels() failed")
 		return "Send Information Failed Failed", err
 	}
 	return "OK", nil
+}
+
+func SendJobStatusReplication(addr string, job_status any) (string, error) {
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("SendInferenceInformation() did not connect: %v", err)
+		return "Connection Failed", err
+	}
+	defer conn.Close()
+	client := fileclient.NewClient(conn, nil)
+	res, err := client.SendJobStatusReplication(context.Background(), job_status)
+	if err != nil || res != "OK" {
+		log.Printf("SendJobStatusReplication() failed")
+		return "Failed to send job status replication", err
+	}
+	return res, err
 }
 
 // Go Member ask Python Server to initialize model
@@ -127,11 +156,24 @@ func AskMemberToRemoveModels(addr string, job_id int) (string, error) {
 func AskToRemoveModels(addr string, job_id int) (string, error) {
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Printf("AskToInference() did not connect: %v", err)
+		log.Printf("AskToRemoveModels() did not connect: %v", err)
 		return "", err
 	}
 	defer conn.Close()
 	client := pythonclient.NewPythonClient(conn)
 	res, err := client.RemoveModel(context.Background(), job_id)
+	return res, nil
+}
+
+// Client request to get all informations
+func ClientRequestJobStatus(addr string, job_id int) (string, error) {
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("ClientRequestJobStatus() did not connect: %v", err)
+		return "", err
+	}
+	defer conn.Close()
+	client := pythonclient.NewPythonClient(conn)
+	res, err := client.RequestJobStatus(context.Background(), job_id)
 	return res, nil
 }

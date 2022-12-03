@@ -31,7 +31,9 @@ const (
 	NUM_VERSION = 5
 	ALLOCATE    = 6
 	TRAIN       = 7
+	INFERENCE   = 8
 )
+
 
 func SetupPythonServer() {
 	cmd := exec.Command("python3", "python/server.py")
@@ -159,7 +161,7 @@ func LogError(err error, message string, exit bool) {
 	}
 }
 
-func PrintJobInfo(jobs_info []JobStatus) {
+func PrintJobInfo(jobs_info map[int]JobStatus) {
 	for _, job := range jobs_info {
 		PrintJob(job)
 	}

@@ -259,3 +259,37 @@ func (c Client) AskMemberToRemoveModels(ctx context.Context, job_id int) (string
 	}
 	return res.Status, nil
 }
+
+func (c Client) SendJobStatusReplication(ctx context.Context, job_status any) (string, error) {
+	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
+	defer cancel()
+	buf := &bytes.Buffer{}
+	gob.NewEncoder(buf).Encode(job_status)
+	job_status_bytes := buf.Bytes()
+	res, err := c.client.SendJobStatusReplication(ctx, &fileproto.JobStatusRequest{
+		Info: job_status_bytes,
+	})
+	if err != nil {
+		log.Println("AskMemberToRemoveModels() fails")
+		return "", err
+	}
+	return res.Status, nil
+}
+
+func (c Client) RequestJobStatus(ctx context.Context, job_id int) (string, error) {
+	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
+	defer cancel()
+	res, err := c.client.PrintStatus(ctx, &fileproto.PrintStatusRequest{
+		JobId: int32(job_id),
+	})
+
+	if err != nil {
+		log.Println("RequestJobStatus() failed ")
+		return "PrintStatus returned error", err
+	}
+
+	var results map[int]utils.JobStatus
+	gob.NewDecoder(bytes.NewReader(res.Info)).Decode(&results)
+	utils.PrintJobInfo(results)
+	return "OK", nil
+}

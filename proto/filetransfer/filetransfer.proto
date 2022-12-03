@@ -28,6 +28,10 @@ service FileService {
 
     // Tells a VM that these replicas have inferenece files you have
     rpc SendJobInformation(JobInformationRequest) returns (JobInformationResponse){}
+
+    rpc SendJobStatusReplication(JobStatusRequest) returns (JobStatusResponse){}
+
+    rpc PrintStatus(PrintStatusRequest) returns (PrintStatusResponse){}
 }
 
 message UploadRequest {
@@ -127,4 +131,20 @@ message ModelRemoveRequest {
 
 message ModelRemoveResponse {
     string status = 1;
+}
+
+message JobStatusRequest {
+    bytes info = 1;
+}
+
+message JobStatusResponse {
+    string status = 1;
+}
+
+message PrintStatusRequest {
+    int32 job_id = 1;
+}
+
+message PrintStatusResponse {
+    bytes Info = 1;
 }

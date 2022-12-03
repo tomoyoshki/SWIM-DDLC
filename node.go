@@ -69,6 +69,9 @@ var MasterFailChannel = make(chan string)
 /* Messages for new process joining */
 var MasterNewChannel = make(chan []string)
 
+//
+var grpc_node_channel = make(chan any)
+
 /* Messages for ending master server */
 var filesystem_finish_channel = make(chan bool)
 
@@ -223,13 +226,13 @@ func main() {
 			if this_host == INTRODUCER_IP {
 				/* Setup the introducer */
 				go IntroduceServer()
-				go server.Server(MASTER_PORT_NUMBER, MasterIncommingChannel, MasterOutgoingChannel, filesystem_finish_channel, new_introducer_channel, SchedulerInChannel, SchedulerOutChannel, &server_files)
+				go server.Server(MASTER_PORT_NUMBER, MasterIncommingChannel, MasterOutgoingChannel, filesystem_finish_channel, new_introducer_channel, SchedulerInChannel, SchedulerOutChannel, grpc_node_channel, &server_files)
 				go MasterServer()
 			} else {
 				/* Setup client and request to the introducer */
 				go AskToIntroduce()
 				go NewIntroducer()
-				go server.Server(MASTER_PORT_NUMBER, MasterIncommingChannel, MasterOutgoingChannel, filesystem_finish_channel, new_introducer_channel, SchedulerInChannel, SchedulerOutChannel, &server_files)
+				go server.Server(MASTER_PORT_NUMBER, MasterIncommingChannel, MasterOutgoingChannel, filesystem_finish_channel, new_introducer_channel, SchedulerInChannel, SchedulerOutChannel, grpc_node_channel, &server_files)
 			}
 		} else if input == "leave" {
 			user_leave = true
@@ -888,6 +891,8 @@ func NodeClient() {
 					}
 				}
 			}
+		case replicated_job_status := <-grpc_node_channel:
+			job_status = replicated_job_status
 		case <-done:
 			return
 		}

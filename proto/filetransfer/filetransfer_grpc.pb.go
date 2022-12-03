@@ -38,6 +38,8 @@ type FileServiceClient interface {
 	AskMemberToRemoveModels(ctx context.Context, in *ModelRemoveRequest, opts ...grpc.CallOption) (*ModelRemoveResponse, error)
 	// Tells a VM that these replicas have inferenece files you have
 	SendJobInformation(ctx context.Context, in *JobInformationRequest, opts ...grpc.CallOption) (*JobInformationResponse, error)
+	SendJobStatusReplication(ctx context.Context, in *JobStatusRequest, opts ...grpc.CallOption) (*JobStatusResponse, error)
+	PrintStatus(ctx context.Context, in *PrintStatusRequest, opts ...grpc.CallOption) (*PrintStatusResponse, error)
 }
 
 type fileServiceClient struct {
@@ -195,6 +197,24 @@ func (c *fileServiceClient) SendJobInformation(ctx context.Context, in *JobInfor
 	return out, nil
 }
 
+func (c *fileServiceClient) SendJobStatusReplication(ctx context.Context, in *JobStatusRequest, opts ...grpc.CallOption) (*JobStatusResponse, error) {
+	out := new(JobStatusResponse)
+	err := c.cc.Invoke(ctx, "/filetransfer.FileService/SendJobStatusReplication", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *fileServiceClient) PrintStatus(ctx context.Context, in *PrintStatusRequest, opts ...grpc.CallOption) (*PrintStatusResponse, error) {
+	out := new(PrintStatusResponse)
+	err := c.cc.Invoke(ctx, "/filetransfer.FileService/PrintStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FileServiceServer is the server API for FileService service.
 // All implementations must embed UnimplementedFileServiceServer
 // for forward compatibility
@@ -215,6 +235,8 @@ type FileServiceServer interface {
 	AskMemberToRemoveModels(context.Context, *ModelRemoveRequest) (*ModelRemoveResponse, error)
 	// Tells a VM that these replicas have inferenece files you have
 	SendJobInformation(context.Context, *JobInformationRequest) (*JobInformationResponse, error)
+	SendJobStatusReplication(context.Context, *JobStatusRequest) (*JobStatusResponse, error)
+	PrintStatus(context.Context, *PrintStatusRequest) (*PrintStatusResponse, error)
 	mustEmbedUnimplementedFileServiceServer()
 }
 
@@ -254,6 +276,12 @@ func (UnimplementedFileServiceServer) AskMemberToRemoveModels(context.Context, *
 }
 func (UnimplementedFileServiceServer) SendJobInformation(context.Context, *JobInformationRequest) (*JobInformationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendJobInformation not implemented")
+}
+func (UnimplementedFileServiceServer) SendJobStatusReplication(context.Context, *JobStatusRequest) (*JobStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SendJobStatusReplication not implemented")
+}
+func (UnimplementedFileServiceServer) PrintStatus(context.Context, *PrintStatusRequest) (*PrintStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PrintStatus not implemented")
 }
 func (UnimplementedFileServiceServer) mustEmbedUnimplementedFileServiceServer() {}
 
@@ -477,6 +505,42 @@ func _FileService_SendJobInformation_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FileService_SendJobStatusReplication_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(JobStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FileServiceServer).SendJobStatusReplication(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/filetransfer.FileService/SendJobStatusReplication",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FileServiceServer).SendJobStatusReplication(ctx, req.(*JobStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FileService_PrintStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PrintStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FileServiceServer).PrintStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/filetransfer.FileService/PrintStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FileServiceServer).PrintStatus(ctx, req.(*PrintStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FileService_ServiceDesc is the grpc.ServiceDesc for FileService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -519,6 +583,14 @@ var FileService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SendJobInformation",
 			Handler:    _FileService_SendJobInformation_Handler,
+		},
+		{
+			MethodName: "SendJobStatusReplication",
+			Handler:    _FileService_SendJobStatusReplication_Handler,
+		},
+		{
+			MethodName: "PrintStatus",
+			Handler:    _FileService_PrintStatus_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
