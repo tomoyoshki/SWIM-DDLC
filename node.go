@@ -229,7 +229,7 @@ func main() {
 			ticker.Stop()
 		} else if input_list[0] == "test" {
 			handleTest(input, input_list)
-		}else {
+		} else {
 			command := strings.ToLower(input_list[0])
 			handleSDFSCommand(command, input_list)
 		}
@@ -378,7 +378,6 @@ func handleSDFSCommand(command string, input_list []string) {
 			handleGetVersions(input_list)
 		} else {
 			handleMLCommand(command, input_list)
-			utils.FormatPrint(fmt.Sprintf("Invalid command %v\n", input_list))
 		}
 	}
 }
