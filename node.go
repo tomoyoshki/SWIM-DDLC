@@ -981,12 +981,11 @@ func RoundRobin(process string) {
 				files_replicas[filename] = file_meta
 			}
 			// TODO: Call askToReplicate and pass in files_replicas
-			current_batch := job_status[current_job].process_batch_progress[process]
+			current_batch := job_status[current_job].ProcessBatchProgress[process]
 			client_model.SendInferenceInformation(process+"3333", current_job, current_batch, files_replicas)
 
 			// Update process batch progress
-			current_batch := job_status[current_job].process_batch_progress[process]
-			job_status[current_job].process_batch_progress[process] = current_batch + 1
+			job_status[current_job].ProcessBatchProgress[process] = current_batch + 1
 			log.Printf("Process %v's job %v's batch number %v is done! Moving on to the next batch.", process, current_job, current_batch)
 
 		} else if current_number_of_jobs == 2 {
@@ -1012,16 +1011,16 @@ func RoundRobin(process string) {
 					current_batch_files = queue[:batch_size]
 					queue = queue[batch_size:]
 					// Update remaining tasks
-					current_job_status.task_queues = queue
+					current_job_status.TaskQueues = queue
 				} else {
 					current_batch_files = queue[:]
 					// Finish all the remaining tasks.
-					current_job_status.task_queues = nil
+					current_job_status.TaskQueues = nil
 				}
 				// Update the current process' in-progress work.
-				current_job_status.process_test_files[process] = current_batch_files
+				current_job_status.ProcessTestFiles[process] = current_batch_files
 				job_status[current_job] = current_job_status
-				current_job_status.task_lock.Unlock()
+				current_job_status.TaskLock.Unlock()
 
 				log.Printf("Current batch files: %v", current_batch_files)
 				// Map of current batch file's metadata
@@ -1032,11 +1031,11 @@ func RoundRobin(process string) {
 					files_replicas[filename] = file_meta
 				}
 				// TODO: Call askToReplicate and pass in files_replicas
-				current_batch := job_status[current_job].process_batch_progress[process]
+				current_batch := job_status[current_job].ProcessBatchProgress[process]
 				client_model.SendInferenceInformation(process+"3333", current_job, current_batch, files_replicas)
 
 				// Update process batch progress
-				job_status[current_job].process_batch_progress[process] = current_batch + 1
+				job_status[current_job].ProcessBatchProgress[process] = current_batch + 1
 				// Move on to the next job.
 				next_job := (current_job + 1) % 2 // 0 ->1 or 1 -> 0
 				process_current_job[process] = next_job
