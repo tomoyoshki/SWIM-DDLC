@@ -49,19 +49,6 @@ var done = make(chan bool, 1)
 
 var user_leave = false
 
-var AllPotentialProcesses = []string{
-	"fa22-cs425-7501.cs.illinois.edu",
-	"fa22-cs425-7502.cs.illinois.edu",
-	"fa22-cs425-7503.cs.illinois.edu",
-	"fa22-cs425-7504.cs.illinois.edu",
-	"fa22-cs425-7505.cs.illinois.edu",
-	"fa22-cs425-7506.cs.illinois.edu",
-	"fa22-cs425-7507.cs.illinois.edu",
-	"fa22-cs425-7508.cs.illinois.edu",
-	"fa22-cs425-7509.cs.illinois.edu",
-	"fa22-cs425-7510.cs.illinois.edu",
-}
-
 var membership_list []string    // Membership list
 var membership_mutex sync.Mutex // Locks for critical sections
 var server_command = make(chan string)
@@ -90,20 +77,6 @@ var file_metadata = make(map[string]utils.FileMetaData)
 var node_metadata = make(map[string][]string)
 
 var server_files = []string{}
-
-// Packet message type
-const (
-	PING       string = "ping"              // When a Client Ping a Server
-	ACK        string = "acknowledgement"   // Response from Server to the Ping of the Client
-	BYE        string = "leave"             // When a server leaves the cluster
-	INTRODUCE  string = "introduce"         // Ping from new node to the introducer
-	JOIN       string = "join"              // Message to notifies others for a new join
-	JOINACK    string = "acknowledge join"  // Message from the server back to the new node
-	FAILURE    string = "fail"              // Message send from a node that detected a server
-	WHOISINTRO string = "who is introducer" // When a process joins, it asks who the introducer is.
-	IAM        string = "I am introducer"
-	NO         string = "no, I am not the introducer"
-)
 
 type Packet struct {
 	Packet_Senderid  string   // ID of the sender
@@ -165,10 +138,11 @@ type JobStatus struct {
 	batch_size              int
 }
 
-var test_dir = []string{"model/speech", "model/images"}
+var test_dir = []string{"test_data/images"}
 
 // This function will load all test data to the SDFS at the beginning.
 func load_test_set() {
+	utils.FormatPrint("Loading test dataset")
 	for _, directory := range test_dir {
 		// Loop through each test file under current dir:
 		files, _ := ioutil.ReadDir(directory)
@@ -188,21 +162,20 @@ func load_test_set() {
 			}
 		}
 	}
-	fmt.Println("Done Loading Testing Data!")
+	utils.FormatPrint("Finished loading test dataset")
 }
 
 func main() {
-	os.RemoveAll("./log")
-	os.RemoveAll("./downloaded")
-	os.RemoveAll("./targets")
 	// setup log files
-	SetupLogfile()
+	SetupFiles()
 	defer log_file.Close()
+
 	// Constantly reading user inputs for instructions
 	scanner := bufio.NewScanner(os.Stdin)
 	fmt.Fprintf(os.Stdout, "> ")
 	for scanner.Scan() {
 		input := scanner.Text()
+		input_list := strings.Split(input, " ")
 		if len(input) == 0 {
 			fmt.Fprintf(os.Stdout, "> ")
 			continue
@@ -221,17 +194,20 @@ func main() {
 			fmt.Println(strings.Repeat("=", 80) + "\n\n")
 		} else if input == "list_self" {
 			fmt.Println("Current id: ", this_id)
+			utils.FormatPrint("current_id: " + this_id)
 		} else if input == "join" {
+			if user_leave == false {
+				continue
+			}
+
 			user_leave = false
 			ticker.Reset(PING_TIME_INTERVAL)
-			/* Update introducer and master address. */
 			INTRODUCER_IP = WhoIsIntroducer()
 			MASTER_ADDRESS = fmt.Sprintf("%s:%d", INTRODUCER_IP, MASTER_PORT_NUMBER)
 			/* Starting detecting and responding */
 			go NodeClient()
 			go NodeServer()
 			if this_host == INTRODUCER_IP {
-				go load_test_set()
 				/* Setup the introducer */
 				go IntroduceServer()
 				go server.Server(MASTER_PORT_NUMBER, MasterIncommingChannel, MasterOutgoingChannel, filesystem_finish_channel, new_introducer_channel, &server_files)
@@ -250,42 +226,11 @@ func main() {
 			node_server.Close()
 			done <- true
 			ticker.Stop()
-		} else if strings.Split(input, " ")[0] == "test" {
-			handleTest(input)
-		} else if strings.Split(input, " ")[0] == "start_job" {
-			// start_job model_type job_id batch_size
-			input_list := strings.Split(input, " ")
-			if len(input_list) != 4 {
-				log.Println("Invalid start_job command [start_job model_type job_id (0 or 1) batch_size]")
-				continue
-			}
-			model_type := input_list[1]
+		} else if input_list[0] == "test" {
+			handleTest(input, input_list)
+		} else if input_list[0] == "start_job" {
 
-			if model_type != "image" && model_type != "speech" {
-				log.Println("Invalid model_type (image or speech)")
-				continue
-			}
-
-			job_id := input_list[2]
-			job_id_int, err := strconv.Atoi(job_id)
-			if err != nil || (job_id != "0" && job_id != "1") {
-				log.Println("Invalid job_id (0, 1)")
-				continue
-			}
-
-			batch_size := input_list[3]
-			batch_size_int, err := strconv.Atoi(batch_size)
-			if err != nil {
-				log.Println("Invalid batch_size")
-				continue
-			}
-
-			_, err = client_model.ClientStartJob(MASTER_ADDRESS, job_id_int, batch_size_int, model_type)
-			if err != nil {
-				log.Println("Received error starting job from server")
-			}
 		} else {
-			input_list := strings.Split(input, " ")
 			command := strings.ToLower(input_list[0])
 			handleSDFSCommand(command, input_list)
 		}
@@ -293,8 +238,7 @@ func main() {
 	}
 }
 
-func handleTest(input string) {
-	input_list := strings.Split(input, " ")
+func handleTest(input string, input_list []string) {
 	if len(input_list) == 1 {
 		log.Println("Invalid test command [python, train, inference, start]")
 	}
@@ -329,6 +273,7 @@ func handleTest(input string) {
 		log.Println("Invalid test command [python, train, inference, start]")
 	}
 }
+
 func handleSDFSCommand(command string, input_list []string) {
 	switch command {
 	case "put":
@@ -413,7 +358,7 @@ func handleSDFSCommand(command string, input_list []string) {
 		}
 		fmt.Println(strings.Repeat("=", 80) + "\n\n")
 	case "store":
-		fmt.Println("The current processes store the following SDFS files: ", server_files)
+		utils.FormatPrint(fmt.Sprintf("The current processes store the following SDFS files: %v", server_files))
 	case "metadata":
 		fmt.Println("\n", strings.Repeat("=", 80))
 		fmt.Println("=\tThe current processes store the following node metadata files: ")
@@ -424,58 +369,102 @@ func handleSDFSCommand(command string, input_list []string) {
 		for file, meta := range file_metadata {
 			fmt.Printf("=\tFilename: %v, highest version: %v, on replicas: %v,\n", file, meta.Version, meta.Replicas)
 		}
+		fmt.Println("\n", strings.Repeat("=", 80))
 	case "introducer":
 		utils.FormatPrint(fmt.Sprintf("The current introducer is: %v \n", INTRODUCER_IP))
 	default:
 		// get-version sdfsfilename num-version localfilename
 		if command == "get-versions" {
-			if len(input_list) != 4 {
-				utils.FormatPrint(fmt.Sprintf("Invalid format of get-versions: %v", input_list))
-				break
-			}
-			log.Print("\n\n Client started get-version")
-			sdfsfilename := input_list[1]
-			num_version, err := strconv.Atoi(input_list[2])
-			if err != nil {
-				utils.FormatPrint(fmt.Sprintf("Invalid format of get-versions: %v", input_list))
-				break
-			}
-			localfilename := input_list[3]
-			// Get the replicas that have address
-			replica_addresses, highest_version_str, err := client.ClientRequest(MASTER_ADDRESS, localfilename, sdfsfilename, utils.NUM_VERSION)
-			log.Printf("Replica addresses %v", replica_addresses)
-			log.Printf("Highest versino string: %v", highest_version_str)
-			if err != nil {
-				log.Printf("Could not get-version from Master")
-				break
-			}
-			// Get the highest version of the file
-			highest_version, err := strconv.Atoi(highest_version_str)
-			for i := 0; i < num_version; i += 1 {
-				last_version := highest_version - i
-				// If there are less than the number of versions requested
-				if last_version < 1 {
-					break
-				}
-				// Get the last version file on the server
-				versioned_sdfsfilename := strconv.Itoa(last_version) + "-" + sdfsfilename
-				versioned_localfilename := strconv.Itoa(last_version) + "-" + localfilename
-				for i, fileserver_addr := range replica_addresses {
-					target_addr_port := fmt.Sprintf("%s:%v", fileserver_addr, MASTER_PORT_NUMBER)
-					log.Printf("Trying to download %v as %v from %v", versioned_sdfsfilename, versioned_localfilename, target_addr_port)
-					log.Printf("Retrieving file %v with version %v from node server %v", versioned_sdfsfilename, last_version, target_addr_port)
-					err := client.ClientDownload(target_addr_port, versioned_localfilename, versioned_sdfsfilename)
-					if err == nil {
-						break
-					}
-					if i == len(replica_addresses)-1 {
-						log.Printf("Received no files")
-					}
-				}
-			}
-			log.Print("\n\n Client ended get-version")
+			handleGetVersions(input_list)
 		} else {
-			fmt.Printf("Invalid command %v\n", input_list)
+			handleMLCommand(command, input_list)
+			utils.FormatPrint(fmt.Sprintf("Invalid command %v\n", input_list))
+		}
+	}
+}
+
+func handleMLCommand(input string, input_list []string) {
+	switch input {
+	case "load_test_dataset":
+		go load_test_set()
+		break
+	case "start_job":
+		// start_job job_id batch_size model_type
+		if len(input_list) != 4 {
+			log.Println("Invalid start_job command [start_job model_type job_id (0 or 1) batch_size]")
+			return
+		}
+		model_type := input_list[1]
+
+		if model_type != "image" && model_type != "speech" {
+			log.Println("Invalid model_type (image or speech)")
+			return
+		}
+
+		job_id := input_list[2]
+		job_id_int, err := strconv.Atoi(job_id)
+		if err != nil || (job_id != "0" && job_id != "1") {
+			log.Println("Invalid job_id (0, 1)")
+			return
+		}
+
+		batch_size := input_list[3]
+		batch_size_int, err := strconv.Atoi(batch_size)
+		if err != nil {
+			log.Println("Invalid batch_size")
+			return
+		}
+
+		_, err = client_model.ClientStartJob(MASTER_ADDRESS, job_id_int, batch_size_int, model_type)
+		if err != nil {
+			log.Println("Received error starting job from server")
+		}
+	case "inference":
+		// inference job_id folder
+	}
+
+}
+
+func handleGetVersions(input_list []string) {
+	if len(input_list) != 4 {
+		utils.FormatPrint(fmt.Sprintf("Invalid format of get-versions: %v", input_list))
+		return
+	}
+	sdfsfilename := input_list[1]
+	num_version, err := strconv.Atoi(input_list[2])
+	if err != nil {
+		utils.FormatPrint(fmt.Sprintf("Invalid format of get-versions: %v", input_list))
+		return
+	}
+	localfilename := input_list[3]
+	// Get the replicas that have address
+	replica_addresses, highest_version_str, err := client.ClientRequest(MASTER_ADDRESS, localfilename, sdfsfilename, utils.NUM_VERSION)
+	if err != nil {
+		log.Printf("Could not get-version from Master")
+		return
+	}
+	// Get the highest version of the file
+	highest_version, err := strconv.Atoi(highest_version_str)
+	for i := 0; i < num_version; i += 1 {
+		last_version := highest_version - i
+		// If there are less than the number of versions requested
+		if last_version < 1 {
+			break
+		}
+		// Get the last version file on the server
+		versioned_sdfsfilename := strconv.Itoa(last_version) + "-" + sdfsfilename
+		versioned_localfilename := strconv.Itoa(last_version) + "-" + localfilename
+		for i, fileserver_addr := range replica_addresses {
+			target_addr_port := fmt.Sprintf("%s:%v", fileserver_addr, MASTER_PORT_NUMBER)
+			log.Printf("Trying to download %v as %v from %v", versioned_sdfsfilename, versioned_localfilename, target_addr_port)
+			log.Printf("Retrieving file %v with version %v from node server %v", versioned_sdfsfilename, last_version, target_addr_port)
+			err := client.ClientDownload(target_addr_port, versioned_localfilename, versioned_sdfsfilename)
+			if err == nil {
+				break
+			}
+			if i == len(replica_addresses)-1 {
+				log.Printf("Received no files")
+			}
 		}
 	}
 }
@@ -510,7 +499,7 @@ func IntroduceServer() {
 			continue
 		}
 
-		if response.Packet_Type != INTRODUCE {
+		if response.Packet_Type != utils.INTRODUCE {
 			continue
 		}
 
@@ -518,13 +507,13 @@ func IntroduceServer() {
 		membership_mutex.Lock()
 
 		// Send the JOIN to the neighbors in old membershiplist
-		packet_to_neighbor := Packet{this_id, JOIN, []string{response.Packet_Senderid}}
+		packet_to_neighbor := Packet{this_id, utils.JOIN, []string{response.Packet_Senderid}}
 		packet_to_neighbor_s, _ := ConvertToSend(packet_to_neighbor)
 		DisseminatePacket(packet_to_neighbor_s)
 
 		// Update the membershiplist and send to the node
 		MembershipListManager(Action{INSERT, response.Packet_Senderid})
-		packet_to_node := Packet{this_id, JOINACK, membership_list}
+		packet_to_node := Packet{this_id, utils.JOINACK, membership_list}
 		packet_to_node_s, _ := ConvertToSend(packet_to_node)
 		_, err = introduce_server.WriteToUDP(packet_to_node_s, node_addr)
 		if err != nil {
@@ -532,14 +521,12 @@ func IntroduceServer() {
 			continue
 		}
 		membership_mutex.Unlock()
-		fmt.Println(strings.Repeat("=", 80))
-		fmt.Println("=\t", response.Packet_Senderid, "joined")
-		fmt.Println(strings.Repeat("=", 80))
+		utils.FormatPrint(response.Packet_Senderid + " joined")
 	}
 }
 
 func IntroduceIntroducer() {
-	for _, addr := range AllPotentialProcesses {
+	for _, addr := range utils.AllPotentialProcesses {
 		// Get UDP address of the processes
 		potential_process_udp_addr, err := net.ResolveUDPAddr("udp", addr+":"+strconv.Itoa(PORT_NUMBER))
 		utils.LogError(err, "Unable to resolve UDP Address: ", false)
@@ -550,7 +537,7 @@ func IntroduceIntroducer() {
 			continue
 		}
 		// Create packet to send INTRODUCE request
-		packet_to_send := Packet{this_id, INTRODUCE, membership_list}
+		packet_to_send := Packet{this_id, utils.INTRODUCE, membership_list}
 		// Convert to UDP sendable format
 		packet, err := ConvertToSend(packet_to_send)
 		utils.LogError(err, "Unable to convert the struct to udp message: ", false)
@@ -589,7 +576,7 @@ func AskToIntroduce() {
 	defer connection.Close()
 
 	/* Create JOIN request packat */
-	request_packet := Packet{this_id, INTRODUCE, []string{}}
+	request_packet := Packet{this_id, utils.INTRODUCE, []string{}}
 	request, err := ConvertToSend(request_packet)
 	utils.LogError(err, "Unable to convert join packet to bytes in AskToIntroduce()", true)
 
@@ -597,19 +584,15 @@ func AskToIntroduce() {
 	utils.LogError(err, "Unable to Write to UDP connection to introducer in AskToIntroduce()", true)
 
 	response_buffer := make([]byte, 1024)
-	fmt.Println("Before reading")
 	_, err = connection.Read(response_buffer)
 	utils.LogError(err, "Unable to Read to UDP response from introducer in AskToIntroduce()", true)
-	fmt.Println("After reading")
 	response_buffer = bytes.Trim(response_buffer, "\x00")
 
-	fmt.Println("Resopsasdsd")
 	response, err := ConvertFromResponse(response_buffer)
 	utils.LogError(err, "Unable to Convert UDP Byte response to packet in AskToIntroduce()", true)
 
-	fmt.Println("Response: ", response)
 	/* If introducer acknowledges our join request */
-	if response.Packet_Type == JOINACK {
+	if response.Packet_Type == utils.JOINACK {
 		membership_list = response.Packet_PiggyBack
 	} else {
 		utils.LogError(err, "Unable to get JOINACK from introducer in AskToIntroduce()", true)
@@ -617,7 +600,7 @@ func AskToIntroduce() {
 }
 
 func WhoIsIntroducer() string {
-	for _, addr := range AllPotentialProcesses {
+	for _, addr := range utils.AllPotentialProcesses {
 		if addr == this_host {
 			continue
 		}
@@ -631,7 +614,7 @@ func WhoIsIntroducer() string {
 			continue
 		}
 		// Create packet to send INTRODUCE request
-		packet_to_send := Packet{this_id, WHOISINTRO, []string{""}}
+		packet_to_send := Packet{this_id, utils.WHOISINTRO, []string{""}}
 		// Convert to UDP sendable format
 		packet, err := ConvertToSend(packet_to_send)
 		utils.LogError(err, "Unable to convert the struct to udp message: ", false)
@@ -651,17 +634,15 @@ func WhoIsIntroducer() string {
 		utils.LogError(err, "Unable to read from UDP on rejoin: ", false)
 		response_packet, err := ConvertFromResponse(response_buffer)
 		utils.LogError(err, "Unable to covert from udp response to struct Packet: ", false)
-		if response_packet.Packet_Type == IAM {
+		if response_packet.Packet_Type == utils.IAM {
 			return strings.Split(response_packet.Packet_Senderid, "_")[0]
 		}
 	}
 	return this_host
 }
 
-/*
-	 The input is the metadata collected from all the non-faulty processe
-		(excluding the previous Master, as it already failed)
-*/
+// The input is the metadata collected from all the non-faulty processe
+// (excluding the previous Master, as it already failed)
 func InitializeMetadata(ProcessFiles map[string][]string) {
 	file_highest_version := make(map[string]int)
 	file_replicas := make(map[string][]string)
@@ -751,31 +732,29 @@ func NodeServer() {
 			continue
 		}
 
-		if response.Packet_Type == WHOISINTRO {
+		if response.Packet_Type == utils.WHOISINTRO {
+			var ack_packet Packet
 			if INTRODUCER_IP == this_host {
-				ack_packet := Packet{this_id, IAM, []string{}}
-				ack_message, err := ConvertToSend(ack_packet)
-				utils.LogError(err, "Unable to convert ack message to send NodeServer()", false)
-				_, _ = node_server.WriteToUDP(ack_message, node_addr) // send Yes back
+				ack_packet = Packet{this_id, utils.IAM, []string{}}
 			} else {
-				ack_packet := Packet{this_id, NO, []string{}}
-				ack_message, err := ConvertToSend(ack_packet)
-				utils.LogError(err, "Unable to convert ack message to send NodeServer()", false)
-				_, _ = node_server.WriteToUDP(ack_message, node_addr) // send No back
+				ack_packet = Packet{this_id, utils.NO, []string{}}
 			}
+			ack_message, err := ConvertToSend(ack_packet)
+			utils.LogError(err, "Unable to convert ack message to send NodeServer()", false)
+			_, _ = node_server.WriteToUDP(ack_message, node_addr) // send Yes back
 			continue
 		}
 
 		// If receives a PING message
-		if response.Packet_Type == PING {
-			ack_packet := Packet{this_id, ACK, []string{}}
+		if response.Packet_Type == utils.PING {
+			ack_packet := Packet{this_id, utils.ACK, []string{}}
 			ack_message, err := ConvertToSend(ack_packet)
 			utils.LogError(err, "Unable to convert ack message to send NodeServer()", false)
 			_, _ = node_server.WriteToUDP(ack_message, node_addr) // send ack back to the pinger
 		} else {
 			// Receives FAILURE, BYE, JOIN, INTRODUCE
 			membership_mutex.Lock()
-			if response.Packet_Type == FAILURE || response.Packet_Type == BYE {
+			if response.Packet_Type == utils.FAILURE || response.Packet_Type == utils.BYE {
 				// FAILURE message, deleting node from membership
 				if response.Packet_PiggyBack[0] == this_id {
 					membership_list = []string{}
@@ -828,10 +807,11 @@ func NodeServer() {
 						DisseminatePacket(disseminate_message)
 					}
 					fmt.Println("\n", strings.Repeat("=", 80))
-					fmt.Println("=\tReceived DELETE from ", strings.Split(response.Packet_Senderid, "_")[0], " on DELETING ", strings.Split(response.Packet_PiggyBack[0], "_")[0])
+					fmt.Println("=\t ", strings.Split(response.Packet_Senderid, "_")[0], " requested to delete")
+					fmt.Println("=\t\t", strings.Split(response.Packet_PiggyBack[0], "_")[0])
 					fmt.Println(strings.Repeat("=", 80))
 				}
-			} else if response.Packet_Type == JOIN {
+			} else if response.Packet_Type == utils.JOIN {
 				// Received a JOIN message, inserting an ID to the array
 				_, inserted := MembershipListManager(Action{INSERT, response.Packet_PiggyBack[0]})
 				// If it is a new info, disseminate
@@ -845,10 +825,7 @@ func NodeServer() {
 					}
 					log.Println(response.Packet_Senderid, " requested on inserting ", response.Packet_PiggyBack[0])
 				}
-			} else if this_ip != INTRODUCER_IP && response.Packet_Type == INTRODUCE {
-				fmt.Println("\n", strings.Repeat("=", 80))
-				fmt.Println("=\tRecevied REINTRODUCE from ", response.Packet_Senderid, " on REINTRODUCING ", response.Packet_PiggyBack[0])
-				fmt.Println(strings.Repeat("=", 80))
+			} else if this_ip != INTRODUCER_IP && response.Packet_Type == utils.INTRODUCE {
 				// If a Non introducer receives an INTRODUCE message
 				MembershipListManager(Action{INSERT, response.Packet_Senderid})
 				ml, _ := MembershipListManager(Action{READ_ML, ""})
@@ -898,15 +875,6 @@ func NodeClient() {
 				}
 			}
 		case <-done:
-			fmt.Println("done")
-			fmt.Println("Start sending FAILURE message to neighbors")
-			/* Notify neighbors that this process is leaving. */
-			// packet_to_neighbor := Packet{this_id, FAILURE, []string{this_id}}
-			// packet_to_neighbor_s, _ := ConvertToSend(packet_to_neighbor)
-			// membership_mutex.Lock()
-			// DisseminatePacket(packet_to_neighbor_s)
-			// membership_list = []string{}
-			// membership_mutex.Unlock()
 			return
 		}
 	}
@@ -1050,24 +1018,6 @@ func RoundRobin(process string, total_task int, batch int, testfiles []string) {
 
 }
 
-// func RoundRobin() {
-// 	for {
-// 		if len(jobs) == 0 {
-// 			break
-// 		} else if len(jobs) == 1 {
-// 			// Only one jobs existsin the queue
-// 			// runjob1
-// 			// ifjob1 done remove job1 from jobs
-
-// 		} else {
-// 			// Two jobs
-// 			10 seconds run job1
-// 			10 secondsrun job2
-// 		}
-// 	}
-// 	round_robin_is_running=False
-// }
-
 // This thread acts as the scheduler that allocates resources
 func SchedulerServer() {
 	for {
@@ -1210,11 +1160,12 @@ func MasterServer() {
 					Replicas: mem_list,
 					Version:  -1}
 			}
-			/* MasterFailChannel is filled after the failed_process is deleted*/
+			// MasterFailChannel is filled after the failed_process is deleted
 		case failed_process := <-MasterFailChannel:
-			/* Two cases to receive other nodes' failure messages:
-			1. From server (received others' failure message).
-			2. fro client's ping (itself detected other's failure.
+			/*
+				Two cases to receive other nodes' failure messages:
+				1. From server (received others' failure message).
+				2. fro client's ping (itself detected other's failure.
 			*/
 			log.Print("\n\n" + strings.Repeat("=", 80) + "Received failed process" + "\n" + strings.Repeat("=", 80))
 			failed_process = strings.Split(failed_process, "_")[0]
@@ -1316,7 +1267,7 @@ func Ping(target_id string) {
 	utils.LogError(err, "Unable to resolve target address in Ping()", false)
 
 	// create Ping Message
-	ping_request_packet := Packet{this_id, PING, []string{}}
+	ping_request_packet := Packet{this_id, utils.PING, []string{}}
 	ping_request, err := ConvertToSend(ping_request_packet)
 	utils.LogError(err, "Unable to convert ping request packet to bytes in NodeClient()", false)
 
@@ -1343,7 +1294,7 @@ func Ping(target_id string) {
 		// Detects a failure
 		// First give the failed process a notice of failure
 
-		failure_notice_packet := Packet{this_id, FAILURE, []string{target_id}}
+		failure_notice_packet := Packet{this_id, utils.FAILURE, []string{target_id}}
 		failure_notice_request, err := ConvertToSend(failure_notice_packet)
 		utils.LogError(err, "Unable to write to neighbor with target in Ping()", false)
 		_, _ = connection.Write(failure_notice_request)
@@ -1390,7 +1341,7 @@ func Ping(target_id string) {
 
 // Create a FAILURE package and Dissmeniate the packet to neighbor
 func NotifyFailure(failed_id string) {
-	notify_request_packet := Packet{this_id, FAILURE, []string{failed_id}}
+	notify_request_packet := Packet{this_id, utils.FAILURE, []string{failed_id}}
 	notify_request, err := ConvertToSend(notify_request_packet)
 	utils.LogError(err, "Unable to convert notify request packet to bytes in NotifyFailure()", false)
 	DisseminatePacket(notify_request)
@@ -1474,7 +1425,10 @@ func GetIP() string {
 	return ""
 }
 
-func SetupLogfile() {
+func SetupFiles() {
+	os.RemoveAll("./log")
+	os.RemoveAll("./downloaded")
+	os.RemoveAll("./targets")
 	utils.CreateFileDirectory("./log/log.log")
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	var err error

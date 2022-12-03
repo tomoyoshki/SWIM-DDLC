@@ -22,8 +22,11 @@ server = None
 
 model1 = None
 model1_initialized = False
+model1_batch_size = 1
+
 model2 = None
 model2_initialized = False
+model2_batch_size = 1
 
 image_utils = None
 
@@ -38,7 +41,7 @@ def SigINTHandler(signum, frame):
         logging.info("Received control-c, now stopping model")
         server.stop(None)
 
-def prepareModel(job_id, model_type):
+def prepareModel(job_id, batch_size, model_type):
     global model1
     global model2
     global model1_initialized
@@ -49,13 +52,13 @@ def prepareModel(job_id, model_type):
             if model_type == "image":
                 model1 = models.resnet50(pretrained=False)
                 model1.load_state_dict(torch.load("./python/resnet50.pth"))
-                model1_initialized = True
+                model1.eval()
             elif model_type == "speech":
                 model1 = torch.hub.load('pytorch/fairseq', 'transformer.wmt14.en-fr', tokenizer='moses', bpe='subword_nmt')
-                model1_initialized = True
             else:
                 logging.info("Received bad model type")
                 return -1
+            model1_initialized = True
         else:
             logging.info("Model1 is currently occupied")
             return -2
@@ -86,7 +89,10 @@ def processData(job_id, batch_id, data_folder):
         logging.info("Image inferencing")
         data_transform = transforms.Compose([transforms.ToTensor()])
         image_datasets = datasets.ImageFolder(data_folder, data_transform)
-        dataloader = torch.utils.data.DataLoader(image_datasets)
+        job_batch_size = model1_batch_size
+        if job_id == 1:
+            job_batch_size = model2_batch_size
+        dataloader = torch.utils.data.DataLoader(image_datasets, batch_size=job_batch_size)
         with open("./python/imagenet_classes.txt", "r") as f:
             categories = [s.strip() for s in f.readlines()]
         inference_result = {}
@@ -110,7 +116,7 @@ class GoPythonServer(GoPythonServicer):
         logging.info("Master requesting to intialize model")
         resp = InitializeResponse(status="OK")
         model_type = request.model_type
-        res = prepareModel(request.job_id, model_type)
+        res = prepareModel(request.job_id, request.batch_size, model_type)
         if res == -1:
             resp.status = "Error"
         elif res == -2:
@@ -121,9 +127,25 @@ class GoPythonServer(GoPythonServicer):
         logging.info("Master requesting on removing model")
         resp = RemoveResponse(status="OK")
         if request.job_id == 0:
+            global model1
+            global model1_initialized
+            global model1_batch_size
+            global job1_done
+
             del model1
+            model1_initialized = False
+            model1_batch_size = False
+            job1_done = True
         elif request.job_id == 1:
+            global model2
+            global model2_initialized
+            global model2_batch_size
+            global job2_done
+
             del model2
+            model2_initialized = False
+            model2_batch_size = False
+            job2_done = True
         else:
             logging.info("Invalid model")
 

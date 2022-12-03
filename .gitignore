@@ -23,3 +23,9 @@ go.work
 *pycache*
 # Test data
 model/
+test_data/
+# Model weights
+*.pth
+python/model_path/
+python/result/
+python/data

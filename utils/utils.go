@@ -8,6 +8,20 @@ import (
 	"strings"
 )
 
+// Packet message type
+const (
+	PING       string = "ping"              // When a Client Ping a Server
+	ACK        string = "acknowledgement"   // Response from Server to the Ping of the Client
+	BYE        string = "leave"             // When a server leaves the cluster
+	INTRODUCE  string = "introduce"         // Ping from new node to the introducer
+	JOIN       string = "join"              // Message to notifies others for a new join
+	JOINACK    string = "acknowledge join"  // Message from the server back to the new node
+	FAILURE    string = "fail"              // Message send from a node that detected a server
+	WHOISINTRO string = "who is introducer" // When a process joins, it asks who the introducer is.
+	IAM        string = "I am introducer"
+	NO         string = "no, I am not the introducer"
+)
+
 const (
 	PUT         = 0
 	GET         = 1
@@ -35,7 +49,7 @@ func RemoveFromList(list []string, target string) []string {
 	return list
 }
 
-var Addresses = []string{
+var AllPotentialProcesses = []string{
 	"fa22-cs425-7501.cs.illinois.edu",
 	"fa22-cs425-7502.cs.illinois.edu",
 	"fa22-cs425-7503.cs.illinois.edu",
