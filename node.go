@@ -936,7 +936,11 @@ func InitializeJobStatus(job_id int, model_name string, model_type string, batch
 	}
 
 	// Gets all the test files under dir.
-	all_files := dir_test_files_map[test_dir[0]]
+	// all_files := dir_test_files_map["targets/1-test_data/images"]
+	all_files := []string{}
+	for k, _ := range file_metadata {
+		all_files = append(all_files, k)
+	}
 
 	new_status := utils.JobStatus{JobId: job_id, BatchSize: batch_size, ModelType: model_type, ModelName: model_name}
 
@@ -989,6 +993,7 @@ func RoundRobin(process string) {
 			current_batch_files := []string{}
 
 			queue := current_job_status.TaskQueues
+			log.Printf("On process %v: Job %v, queue is %v", process, current_job, queue)
 			if len(queue) == 0 {
 				/* No more tasks to do for this job. Done! */
 				job_status[current_job].TaskLock.Unlock()
@@ -1020,7 +1025,7 @@ func RoundRobin(process string) {
 			}
 			// TODO: Call askToReplicate and pass in files_replicas
 			current_batch := job_status[current_job].ProcessBatchProgress[process]
-			client_model.SendInferenceInformation(process+"3333", current_job, current_batch, files_replicas)
+			client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas)
 
 			// Update process batch progress
 			job_status[current_job].ProcessBatchProgress[process] = current_batch + 1
@@ -1112,7 +1117,7 @@ func SchedulerServer() {
 
 					running_jobs = append(running_jobs, new_job.JobID) // 1st job
 					round_robin_running = true
-					log.Printf("The running job is running_jobs", running_jobs)
+					log.Printf("The running job is running_jobs %v", running_jobs)
 					members_host := GetHostsFromID(membership_list) // Get rid of timestamp
 					for _, process := range members_host {
 						// ScheduleWaitGroup.Add(1)
