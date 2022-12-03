@@ -178,8 +178,9 @@ class GoPythonServer(GoPythonServicer):
 
 
 if __name__ == '__main__':
+    os.remove("python_log.log")
     logging.basicConfig(
-        filename="/log/python_log.log",
+        filename="python_log.log",
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
     )
