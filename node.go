@@ -47,7 +47,7 @@ var log_file *os.File
 
 var done = make(chan bool, 1)
 
-var user_leave = false
+var user_leave = true
 
 var membership_list []string    // Membership list
 var membership_mutex sync.Mutex // Locks for critical sections
