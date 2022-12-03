@@ -58,7 +58,7 @@ func ClientRemoveModel(addr string, job_id int) (string, error) {
 	client := fileclient.NewClient(conn, nil)
 	res_status, err := client.RequestRemove(context.Background(), job_id)
 	if res_status != "OK" {
-		log.Print("Failed to initialize model")
+		log.Print("Failed to remove model")
 	}
 	return res_status, err
 }

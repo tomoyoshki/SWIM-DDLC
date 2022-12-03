@@ -209,7 +209,7 @@ func (c Client) StartInference(ctx context.Context, job_id int) (string, error) 
 func (c Client) RequestRemove(ctx context.Context, job_id int) (string, error) {
 	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
 	defer cancel()
-	res, err := c.client.StartJob(ctx, &fileproto.JobRequest{
+	res, err := c.client.RequestRemove(ctx, &fileproto.JobRequest{
 		JobId: int32(job_id),
 	})
 	if err != nil {
