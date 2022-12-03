@@ -274,7 +274,7 @@ func (c Client) AskMemberToRemoveModels(ctx context.Context, job_id int) (string
 	return res.Status, nil
 }
 
-func (c Client) SendJobStatusReplication(ctx context.Context, job_status any) (string, error) {
+func (c Client) SendJobStatusReplication(ctx context.Context, job_status utils.JobStatus) (string, error) {
 	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
 	defer cancel()
 	buf := &bytes.Buffer{}
