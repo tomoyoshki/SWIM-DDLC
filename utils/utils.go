@@ -164,8 +164,5 @@ func PrintJob(job JobStatus) {
 	fmt.Println("=\tModel type: ", job.model_type)
 	fmt.Println("=\tModel name: ", job.model_name)
 	fmt.Println("=\tCurrent VM assigned")
-	for i, vm := range job.AssignedVM {
-		fmt.Println("=\t\t", i, ": ", vm)
-	}
 	fmt.Println(strings.Repeat("=", 80))
 }

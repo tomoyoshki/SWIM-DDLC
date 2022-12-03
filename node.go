@@ -78,9 +78,6 @@ var node_metadata = make(map[string][]string)
 
 var server_files = []string{}
 
-// There are two jobs
-var jobs_info = make([]utils.JobInfo, 2)
-
 type Packet struct {
 	Packet_Senderid  string   // ID of the sender
 	Packet_Type      string   // PING ACK BYE JOIN FAILURE
@@ -175,17 +172,6 @@ func main() {
 	// setup log files
 	SetupFiles()
 	defer log_file.Close()
-
-	for i, val := range jobs_info {
-		val.Exist = true
-		fmt.Println(jobs_info[i].Exist)
-		jobs_info[i].Exist = true
-	}
-
-	for i := range jobs_info {
-		fmt.Println(jobs_info[i].Exist)
-	}
-
 	// Constantly reading user inputs for instructions
 	scanner := bufio.NewScanner(os.Stdin)
 	fmt.Fprintf(os.Stdout, "> ")
