@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 )
 
 // Packet message type
@@ -33,7 +34,6 @@ const (
 	TRAIN       = 7
 	INFERENCE   = 8
 )
-
 
 func SetupPythonServer() {
 	cmd := exec.Command("python3", "python/server.py")
@@ -96,18 +96,18 @@ type NodeMetaData struct {
 	Node string
 }
 
+// process_allocation     map[string]int      // Maps process to which i-th N/10 (assume num_workers = 10)
 type JobStatus struct {
-	job_id                  int                 // Id of the job
-	batch_size              int                 // Batch size
-	num_workers             int                 // Number of workers doing this job
-	each_process_total_task int                 // Total test files in this job / num_workers
-	query_rate              float32             // Query rate
-	model_type              string              // Current job's model type
-	model_name              string              // Current job's model name
-	process_allocation      map[string]int      // Maps process to which i-th N/10 (assume num_workers = 10)
-	process_batch_progress  map[string]int      // Maps process to its current batch number in the job (which batch in each N/10)
-	process_test_files      map[string][]string // Maps process to its assigned test files (of length each_process_total_task)
-	task_queues             []string
+	JobId                 int                 // Id of the job
+	BatchSize             int                 // Batch size
+	NumWorkers            int                 // Number of workers doing this job
+	QueryRate             float32             // Query rate
+	ModelType             string              // Current job's model type
+	ModelName             string              // Current job's model name
+	ProcessBatchProgress map[string]int      // Maps process to its current batch number in the job (which batch in each N/10)
+	ProcessTestFiles     map[string][]string // Maps process to its assigned test files (of length each_process_total_task)
+	TaskQueues            []string
+	TaskLock              *sync.Mutex
 }
 
 func CreateFileDirectory(filepath string) {
