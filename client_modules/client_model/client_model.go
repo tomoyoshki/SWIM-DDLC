@@ -28,7 +28,6 @@ func ClientStartJob(addr string, job_id int, batch_size int, model_type string) 
 	return res_status, err
 }
 
-
 // Client asks Server to start inferencing on Model with id = Job Id
 func ClientInferenceJob(addr string, job_id int) (string, error) {
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -39,7 +38,7 @@ func ClientInferenceJob(addr string, job_id int) (string, error) {
 	defer conn.Close()
 
 	client := fileclient.NewClient(conn, nil)
-	res_status, err := client.(context.Background(), job_id)
+	res_status, err := client.StartInference(context.Background(), job_id)
 	if res_status != "OK" {
 		log.Print("Failed to initialize model")
 	}

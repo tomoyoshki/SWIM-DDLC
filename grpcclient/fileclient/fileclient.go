@@ -174,7 +174,7 @@ func (c Client) MasterAskToReplicate(ctx context.Context, replica_addr string, s
 	return err
 }
 
-// Ask the machine to train their models
+// Client ask Server to Start training
 func (c Client) StartJob(ctx context.Context, job_id int, batch_size int, model_type string) (string, error) {
 	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
 	defer cancel()
@@ -188,6 +188,20 @@ func (c Client) StartJob(ctx context.Context, job_id int, batch_size int, model_
 		return "", err
 	}
 	// log.Printf("Startjob result: %v", res.Status)
+	return res.Status, err
+}
+
+// Client ask Server to Start inferencing
+func (c Client) StartInference(ctx context.Context, job_id int) (string, error) {
+	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
+	defer cancel()
+	res, err := c.client.StartJob(ctx, &fileproto.JobRequest{
+		JobId: int32(job_id),
+	})
+	if err != nil {
+		log.Printf("StartInference() error: %v", err)
+		return "", err
+	}
 	return res.Status, err
 }
 
