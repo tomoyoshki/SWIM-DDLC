@@ -965,13 +965,16 @@ func InitializeJobStatus(job_id int, model_name string, model_type string, batch
 // Called on the per-process basis: round-robins style allocation of test data for inferencing.
 // It will keep on sending test-files batch-by-batch to jobs alternatively.
 func RoundRobin(process string) {
-	defer ScheduleWaitGroup.Done()
+	// defer ScheduleWaitGroup.Done()
 	for {
 		current_number_of_jobs := 0
 		jobs_lock.Lock()
 		current_number_of_jobs = len(running_jobs)
 		jobs_lock.Unlock()
 		if current_number_of_jobs == 0 {
+			round_robin_running = false
+			log.Printf("All Jobs are DONE!")
+			// TODO: Clear all job status!
 			break
 		} else if current_number_of_jobs == 1 {
 			// Just one job.
@@ -1100,21 +1103,20 @@ func SchedulerServer() {
 				// TODO: Check if new_job.JobID is initialized yet. If not, return to user warning!
 				log.Printf("Job %v starts inferencing!", new_job.JobID)
 				// inference job_id
-				if round_robin_running {
+				if round_robin_running { // ! Race condition here. Round-robin-running maybe set to false when some process may still be running.
 					running_jobs = append(running_jobs, new_job.JobID) // 2nd job
 				} else {
+
 					running_jobs = append(running_jobs, new_job.JobID) // 1st job
 					round_robin_running = true
 
 					members_host := GetHostsFromID(membership_list) // Get rid of timestamp
 					for _, process := range members_host {
-						ScheduleWaitGroup.Add(1)
+						// ScheduleWaitGroup.Add(1)
+						process_current_job[process] = new_job.JobID
 						// Allocate the test files for each process concurrently.
 						go RoundRobin(process)
 					}
-					ScheduleWaitGroup.Wait()
-					round_robin_running = false
-					fmt.Printf("Job for %v\n is DONE!", new_job.JobID)
 				}
 			} else if new_job.Action == utils.REMOVE {
 				membership_mutex.Lock()
