@@ -111,7 +111,7 @@ const (
 /* ------------------------ Scheduler Data Structures ------------------------  */
 
 /* Channel for receiving new jobs (command as list of strings) */
-var JobsQueue = make(chan string)
+var JobsQueue = make(chan utils.MLMessage)
 var batch_size_1 = 32
 var batch_size_2 = 32
 var ScheduleWaitGroup sync.WaitGroup
@@ -984,7 +984,7 @@ func Allocate(process string, total_task int, batch int, testfiles []string) {
 // called on the per-process basis: round-robins style allocation
 // TODO: Change parameters. Inside len(jobs) == 1, should just use job_status datastructure to determine progress.
 func RoundRobin(process string, total_task int, batch int, testfiles []string) {
-	defer ScheduleWaitGroup.Done()
+	// defer ScheduleWaitGroup.Done()
 	for {
 		// job:= -1
 		if len(jobs) == 0 {
@@ -1062,9 +1062,6 @@ func RoundRobin(process string, total_task int, batch int, testfiles []string) {
 				current_job = (current_job + 1) % 2 // 0 ->1 or 1 -> 0
 			}
 		}
-		if current_job != -1 {
-
-		}
 	}
 
 }
@@ -1074,6 +1071,10 @@ func SchedulerServer() {
 	for {
 		select {
 		case new_job := <-JobsQueue:
+			if new_job.Action == utils.TRAIN {
+				// TODO: Initialize job status
+
+			}
 			log.Printf("New job received: %v", new_job)
 			// inference job_id
 			if round_robin_running {
