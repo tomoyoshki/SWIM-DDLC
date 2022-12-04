@@ -104,6 +104,7 @@ type JobStatus struct {
 	JobId                int                 // Id of the job
 	BatchSize            int                 // Batch size
 	NumWorkers           int                 // Number of workers doing this job
+	QueryCount           int                 // Number of tasks done for this job.
 	QueryRate            float32             // Query rate
 	ModelType            string              // Current job's model type
 	ModelName            string              // Current job's model name
@@ -141,17 +142,19 @@ func (j *JobStatus) AssignWorks(process string) ([]string, int, int) {
 	return current_batch_files, current_batch, 1
 }
 
-// func (j *JobStatus) Lock() {
-// j.tasklock.Lock()
-// }
+// Completes the work done.
+func (j *JobStatus) RestoreTasks(process string, tasks []string) {
+	j.tasklock.Lock()
 
-// func (j *JobStatus) Unlock() {
-// j.tasklock.Unlock()
-// }
+	queue := j.TaskQueues
+	queue = append(tasks, queue...)
+	log.Printf("Restored process %v tasks for job %v, the length of queue is %v", process, j.JobId, len(queue))
+	// Set the current process' to empty
+	j.ProcessTestFiles[process] = []string{}
 
-// func (j *JobStatus) AssignLock(lock *sync.Mutex) {
-// j.tasklock = lock
-// }
+	// Update the global job status.
+	j.tasklock.Unlock()
+}
 
 func CreateFileDirectory(filepath string) {
 	target_filename_array := strings.Split(filepath, "/")

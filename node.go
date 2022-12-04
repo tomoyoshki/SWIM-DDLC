@@ -994,6 +994,8 @@ func InitializeJobStatus(job_id int, model_name string, model_type string, batch
 	new_status.BatchSize = batch_size
 	new_status.ModelType = model_type
 	new_status.ModelName = model_name
+	new_status.QueryCount = 0
+	new_status.QueryRate = 0
 	membership_mutex.Lock()
 	mem_list, _ := GetMembershipList()
 	membership_mutex.Unlock()
@@ -1048,7 +1050,14 @@ func RoundRobin(process string) {
 
 			// TODO: Call askToReplicate and pass in files_replicas
 			log.Printf("Sending batch of size %v to process %v", len(files_replicas), process)
-			client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas)
+			result := client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas)
+			if result != nil {
+				// Store the result
+			} else {
+				// An error occurred for this process. Need to put the current batch files back.
+				job_status[current_job].RestoreTasks(process, current_batch_files)
+				continue
+			}
 
 			// Update process batch progress
 			job_status[current_job].ProcessBatchProgress[process] = current_batch + 1
@@ -1077,8 +1086,15 @@ func RoundRobin(process string) {
 				}
 				// TODO: Call askToReplicate and pass in files_replicas
 				log.Printf("Scheduler send to process %v to process job %v on batch %v!", process, current_job, current_batch)
-				client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas)
+				result := client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas)
 
+				if result != nil {
+					// Store the result
+				} else {
+					// An error occurred for this process. Need to put the current batch files back.
+					job_status[current_job].RestoreTasks(process, current_batch_files)
+					continue
+				}
 				// After finish, update process batch progress
 				job_status[current_job].ProcessBatchProgress[process] = current_batch + 1
 				// Move on to the next job.
@@ -1111,6 +1127,9 @@ func ReInitializeStatus(job_id int) {
 		job_status[job_id].ProcessBatchProgress[process] = 0
 		job_status[job_id].ProcessTestFiles[process] = []string{}
 	}
+
+	job_status[job_id].QueryCount = 0
+	job_status[job_id].QueryRate = 0
 }
 
 // This thread acts as the scheduler that allocates resources
