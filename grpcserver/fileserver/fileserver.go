@@ -295,7 +295,6 @@ func (s Server) SendJobInformation(ctx context.Context, req *fileproto.JobInform
 	this_host, _ := os.Hostname()
 	sdfsfilename := fmt.Sprintf("inference_result/%v/%v/%v/result.txt", req.JobId, this_host, req.BatchId)
 
-	log.Printf("Putting result from %v to %v", result_file_dir, sdfsfilename)
 	addresses, new_sdfsfilename, err := client.ClientRequest(host_addr, result_file_dir, sdfsfilename, utils.PUT)
 	if err != nil {
 		log.Printf("Error Requesting for files: %v", err)
