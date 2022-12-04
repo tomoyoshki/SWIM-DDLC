@@ -1062,7 +1062,7 @@ func RoundRobin(process string) {
 					files_replicas[filename] = file_meta
 				}
 				// TODO: Call askToReplicate and pass in files_replicas
-				client_model.SendInferenceInformation(process+"3333", current_job, current_batch, files_replicas)
+				client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas)
 
 				// After finish, update process batch progress
 				job_status[current_job].ProcessBatchProgress[process] = current_batch + 1
