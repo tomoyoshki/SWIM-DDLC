@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0egopython.proto\x12\x08gopython\"K\n\x11InitializeRequest\x12\x12\n\nbatch_size\x18\x01 \x01(\x05\x12\x12\n\nmodel_type\x18\x02 \x01(\t\x12\x0e\n\x06job_id\x18\x03 \x01(\x05\"$\n\x12InitializeResponse\x12\x0e\n\x06status\x18\x01 \x01(\t\"k\n\x10InferenceRequest\x12\x0e\n\x06job_id\x18\x01 \x01(\x05\x12\x10\n\x08\x62\x61tch_id\x18\x02 \x01(\x05\x12\x16\n\x0einference_size\x18\x03 \x01(\x05\x12\x1d\n\x15inference_data_folder\x18\x04 \x01(\t\"=\n\x11InferenceResponse\x12\x0e\n\x06status\x18\x01 \x01(\t\x12\x18\n\x10inference_result\x18\x02 \x01(\x0c\"\x1f\n\rRemoveRequest\x12\x0e\n\x06job_id\x18\x01 \x01(\x05\" \n\x0eRemoveResponse\x12\x0e\n\x06status\x18\x01 \x01(\t2\xeb\x01\n\x08GoPython\x12N\n\x0fInitializeModel\x12\x1b.gopython.InitializeRequest\x1a\x1c.gopython.InitializeResponse\"\x00\x12K\n\x0eModelInference\x12\x1a.gopython.InferenceRequest\x1a\x1b.gopython.InferenceResponse\"\x00\x12\x42\n\x0bRemoveModel\x12\x17.gopython.RemoveRequest\x1a\x18.gopython.RemoveResponse\"\x00\x42\x19Z\x17\x63s425mp3/proto/gopythonb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0egopython.proto\x12\x08gopython\"_\n\x11InitializeRequest\x12\x12\n\nbatch_size\x18\x01 \x01(\x05\x12\x12\n\nmodel_type\x18\x02 \x01(\t\x12\x0e\n\x06job_id\x18\x03 \x01(\x05\x12\x12\n\nmodel_name\x18\x04 \x01(\t\"$\n\x12InitializeResponse\x12\x0e\n\x06status\x18\x01 \x01(\t\"k\n\x10InferenceRequest\x12\x0e\n\x06job_id\x18\x01 \x01(\x05\x12\x10\n\x08\x62\x61tch_id\x18\x02 \x01(\x05\x12\x16\n\x0einference_size\x18\x03 \x01(\x05\x12\x1d\n\x15inference_data_folder\x18\x04 \x01(\t\"=\n\x11InferenceResponse\x12\x0e\n\x06status\x18\x01 \x01(\t\x12\x18\n\x10inference_result\x18\x02 \x01(\x0c\"\x1f\n\rRemoveRequest\x12\x0e\n\x06job_id\x18\x01 \x01(\x05\" \n\x0eRemoveResponse\x12\x0e\n\x06status\x18\x01 \x01(\t2\xeb\x01\n\x08GoPython\x12N\n\x0fInitializeModel\x12\x1b.gopython.InitializeRequest\x1a\x1c.gopython.InitializeResponse\"\x00\x12K\n\x0eModelInference\x12\x1a.gopython.InferenceRequest\x1a\x1b.gopython.InferenceResponse\"\x00\x12\x42\n\x0bRemoveModel\x12\x17.gopython.RemoveRequest\x1a\x18.gopython.RemoveResponse\"\x00\x42\x19Z\x17\x63s425mp3/proto/gopythonb\x06proto3')
 
 
 
@@ -72,17 +72,17 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'Z\027cs425mp3/proto/gopython'
   _INITIALIZEREQUEST._serialized_start=28
-  _INITIALIZEREQUEST._serialized_end=103
-  _INITIALIZERESPONSE._serialized_start=105
-  _INITIALIZERESPONSE._serialized_end=141
-  _INFERENCEREQUEST._serialized_start=143
-  _INFERENCEREQUEST._serialized_end=250
-  _INFERENCERESPONSE._serialized_start=252
-  _INFERENCERESPONSE._serialized_end=313
-  _REMOVEREQUEST._serialized_start=315
-  _REMOVEREQUEST._serialized_end=346
-  _REMOVERESPONSE._serialized_start=348
-  _REMOVERESPONSE._serialized_end=380
-  _GOPYTHON._serialized_start=383
-  _GOPYTHON._serialized_end=618
+  _INITIALIZEREQUEST._serialized_end=123
+  _INITIALIZERESPONSE._serialized_start=125
+  _INITIALIZERESPONSE._serialized_end=161
+  _INFERENCEREQUEST._serialized_start=163
+  _INFERENCEREQUEST._serialized_end=270
+  _INFERENCERESPONSE._serialized_start=272
+  _INFERENCERESPONSE._serialized_end=333
+  _REMOVEREQUEST._serialized_start=335
+  _REMOVEREQUEST._serialized_end=366
+  _REMOVERESPONSE._serialized_start=368
+  _REMOVERESPONSE._serialized_end=400
+  _GOPYTHON._serialized_start=403
+  _GOPYTHON._serialized_end=638
 # @@protoc_insertion_point(module_scope)
