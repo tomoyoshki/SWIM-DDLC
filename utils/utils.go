@@ -113,6 +113,7 @@ type JobStatus struct {
 	ProcessTestFiles     map[string][]string // Maps process to its assigned test files (of length each_process_total_task)
 	TaskQueues           []string
 	tasklock             sync.Mutex
+	workers              []string // List of existing worker processes
 }
 
 func (j *JobStatus) AssignWorks(process string) ([]string, int, int) {

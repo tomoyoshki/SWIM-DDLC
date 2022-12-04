@@ -1061,7 +1061,7 @@ func RoundRobin(process string) {
 				membership_mutex.Unlock()
 				mem_list = GetHostsFromID(mem_list)
 				failed := true
-				for _, member := mem_list {
+				for _, member := range mem_list {
 					if member == process {
 						failed = false
 						break
@@ -1112,7 +1112,7 @@ func RoundRobin(process string) {
 					membership_mutex.Unlock()
 					mem_list = GetHostsFromID(mem_list)
 					failed := true
-					for _, member := mem_list {
+					for _, member := range mem_list {
 						if member == process {
 							failed = false
 							break
