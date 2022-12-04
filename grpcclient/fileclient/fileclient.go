@@ -175,7 +175,7 @@ func (c Client) MasterAskToReplicate(ctx context.Context, replica_addr string, s
 
 // Client ask Server to Start training
 func (c Client) StartJob(ctx context.Context, job_id int, batch_size int, model_type string, model_name string) (string, error) {
-	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
+	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(20*time.Second))
 	defer cancel()
 	res, err := c.client.StartJob(ctx, &fileproto.JobRequest{
 		JobId:     int32(job_id),
