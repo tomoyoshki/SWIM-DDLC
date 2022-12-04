@@ -159,6 +159,7 @@ func (j *JobStatus) RestoreTasks(process string, tasks []string) {
 
 	queue := j.TaskQueues
 	queue = append(tasks, queue...)
+	j.TaskQueues = queue
 	log.Printf("Restored process %v tasks for job %v, the length of queue is %v", process, j.JobId, len(queue))
 	// Set the current process' to empty
 	j.ProcessTestFiles[process] = []string{}
@@ -236,9 +237,13 @@ func PrintJob(job *JobStatus) {
 	fmt.Println("=\tModel type: ", job.ModelType)
 	fmt.Println("=\tModel name: ", job.ModelName)
 	fmt.Println("=\tRemaining files: ", len(job.TaskQueues))
+	fmt.Println("=\tWorkers for this job")
+	for i, worker := range job.Workers {
+		fmt.Printf("=\t\t%v: %v\n", i, worker)
+	}
 	fmt.Println("=\tVMs assigned to this job")
-	for process := range job.ProcessTestFiles {
-		fmt.Printf("=\t\t%v\n", process)
+	for process, file := range job.ProcessTestFiles {
+		fmt.Printf("=\t\t%v: %v\n", process, len(file))
 	}
 	fmt.Println(strings.Repeat("=", 80))
 }

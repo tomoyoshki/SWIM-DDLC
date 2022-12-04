@@ -1051,7 +1051,7 @@ func RoundRobin(process string) {
 			}
 
 			// TODO: Call askToReplicate and pass in files_replicas
-			log.Printf("Sending batch of size %v to process %v", len(files_replicas), process)
+			// log.Printf("Sending batch of size %v to process %v", len(files_replicas), process)
 			result := client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas)
 			if result != nil {
 				// The inference was successfully completed and stored.
@@ -1065,6 +1065,9 @@ func RoundRobin(process string) {
 				membership_mutex.Unlock()
 				mem_list = GetHostsFromID(mem_list)
 				failed := true
+
+				log.Println(mem_list)
+				log.Println(process)
 				for _, member := range mem_list {
 					if member == process {
 						failed = false
