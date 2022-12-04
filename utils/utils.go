@@ -86,7 +86,7 @@ type MLMessage struct {
 	ModelType      string
 	ModelName      string
 	MembershipList []string
-	JobInfo        JobStatus
+	JobInfo        *JobStatus
 }
 
 /* This represents a metadata for a file; */
@@ -110,20 +110,48 @@ type JobStatus struct {
 	ProcessBatchProgress map[string]int      // Maps process to its current batch number in the job (which batch in each N/10)
 	ProcessTestFiles     map[string][]string // Maps process to its assigned test files (of length each_process_total_task)
 	TaskQueues           []string
-	tasklock             *sync.Mutex
+	tasklock             sync.Mutex
 }
 
-func (j JobStatus) Lock() {
+func (j *JobStatus) AssignWorks(process string) ([]string, int, int) {
 	j.tasklock.Lock()
-}
+	batch_size := j.BatchSize
+	current_batch_files := []string{}
 
-func (j JobStatus) Unlock() {
+	queue := j.TaskQueues
+	log.Printf("On process %v: Job %v, number of job in the queue: %v", process, j.JobId, len(queue))
+	if len(queue) == 0 {
+		/* No more tasks to do for this job. Done! */
+		j.tasklock.Unlock()
+		return nil, 0, 0
+	} else if len(queue) > batch_size {
+		current_batch_files = queue[:batch_size]
+		queue = queue[batch_size:]
+		j.TaskQueues = queue
+	} else {
+		current_batch_files = j.TaskQueues[:]
+		j.TaskQueues = nil
+	}
+	// Update the current process' in-progress work.
+	j.ProcessTestFiles[process] = current_batch_files
+	// Update the global job status.
 	j.tasklock.Unlock()
+
+	current_batch := j.ProcessBatchProgress[process]
+	return current_batch_files, current_batch, 1
 }
 
-func (j JobStatus) AssignLock(lock *sync.Mutex) {
-	j.tasklock = lock
-}
+// func (j *JobStatus) Lock() {
+// j.tasklock.Lock()
+// }
+
+// func (j *JobStatus) Unlock() {
+// j.tasklock.Unlock()
+// }
+
+// func (j *JobStatus) AssignLock(lock *sync.Mutex) {
+// j.tasklock = lock
+// }
 
 func CreateFileDirectory(filepath string) {
 	target_filename_array := strings.Split(filepath, "/")
@@ -177,12 +205,12 @@ func LogError(err error, message string, exit bool) {
 	}
 }
 
-func PrintJobInfo(jobs_info map[int]JobStatus) {
+func PrintJobInfo(jobs_info map[int]*JobStatus) {
 	for _, job := range jobs_info {
 		PrintJob(job)
 	}
 }
-func PrintJob(job JobStatus) {
+func PrintJob(job *JobStatus) {
 	fmt.Print("Printing job info\n")
 	fmt.Println(strings.Repeat("=", 80))
 	fmt.Println("=\tJob Id: ", job.JobId)

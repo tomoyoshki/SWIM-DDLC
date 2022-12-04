@@ -69,7 +69,7 @@ var MasterFailChannel = make(chan string)
 /* Messages for new process joining */
 var MasterNewChannel = make(chan []string)
 
-var grpc_node_channel = make(chan map[int]utils.JobStatus)
+var grpc_node_channel = make(chan map[int]*utils.JobStatus)
 
 /* Messages for ending master server */
 var filesystem_finish_channel = make(chan bool)
@@ -119,7 +119,7 @@ var jobs_lock sync.Mutex
 var job1_queue_lock sync.Mutex
 var job2_queue_lock sync.Mutex
 var process_current_job = make(map[string]int) // Maps process to the job ID it is currently working on
-var job_status = make(map[int]utils.JobStatus)
+var job_status = make(map[int]*utils.JobStatus)
 var dir_test_files_map = make(map[string][]string) // Maps a directory to its files
 
 // // Maps a process to its corresponding channel (for tracking each progress)
@@ -965,7 +965,7 @@ func InitializeJobStatus(job_id int, model_name string, model_type string, batch
 		all_files = append(all_files, k)
 	}
 
-	new_status := utils.JobStatus{JobId: job_id, BatchSize: batch_size, ModelType: model_type, ModelName: model_name}
+	new_status := &utils.JobStatus{JobId: job_id, BatchSize: batch_size, ModelType: model_type, ModelName: model_name}
 	log.Println(batch_size)
 	log.Println(model_type)
 	log.Println(model_name)
@@ -984,10 +984,11 @@ func InitializeJobStatus(job_id int, model_name string, model_type string, batch
 	// Handle leftovers (total task per process alaways round down)
 	if job_id == 0 {
 		// new_status.TaskLock = &job1_queue_lock
-		new_status.AssignLock(&job1_queue_lock)
+		// log.Println("Job 1 lock: ", &job1_queue_lock)
+		// new_status.AssignLock(&job1_queue_lock)
 	} else {
 		// new_status.TaskLock = &job2_queue_lock
-		new_status.AssignLock(&job2_queue_lock)
+		// new_status.AssignLock(&job2_queue_lock)
 	}
 
 	new_status.TaskQueues = make([]string, len(all_files))
@@ -1015,33 +1016,13 @@ func RoundRobin(process string) {
 		} else if current_number_of_jobs == 1 {
 			// Just one job.
 			current_job := process_current_job[process]
-			job_status[current_job].Lock()
-			current_job_status := job_status[current_job]
-			batch_size := job_status[current_job].BatchSize
-			current_batch_files := []string{}
-
-			queue := current_job_status.TaskQueues
-			log.Printf("On process %v: Job %v, number of job in the queue: %v", process, current_job, len(queue))
-			if len(queue) == 0 {
-				/* No more tasks to do for this job. Done! */
-				job_status[current_job].Unlock()
+			current_batch_files, current_batch, res := job_status[current_job].AssignWorks(process)
+			if res == 0 {
 				jobs_lock.Lock()
 				running_jobs = RemoveFromIntList(running_jobs, current_job)
 				jobs_lock.Unlock()
 				break
-			} else if len(queue) > batch_size {
-				current_batch_files = queue[:batch_size]
-				queue = queue[batch_size:]
-				current_job_status.TaskQueues = queue
-			} else {
-				current_batch_files = current_job_status.TaskQueues[:]
-				current_job_status.TaskQueues = nil
 			}
-			// Update the current process' in-progress work.
-			current_job_status.ProcessTestFiles[process] = current_batch_files
-			// Update the global job status.
-			job_status[current_job] = current_job_status
-			job_status[current_job].Unlock()
 
 			files_replicas := make(map[string][]string)
 			// For each file in the batch, send it through channel.
@@ -1049,68 +1030,68 @@ func RoundRobin(process string) {
 				file_meta := file_metadata[filename].Replicas
 				files_replicas[filename] = file_meta
 			}
+
 			// TODO: Call askToReplicate and pass in files_replicas
-			current_batch := job_status[current_job].ProcessBatchProgress[process]
 			log.Printf("Sending batch of size %v to process %v", len(files_replicas), process)
 			client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas)
 
 			// Update process batch progress
+
 			job_status[current_job].ProcessBatchProgress[process] = current_batch + 1
 			log.Printf("Process %v's job %v's batch number %v is done! Moving on to the next batch.", process, current_job, current_batch)
-
 		} else if current_number_of_jobs == 2 {
 			// Round robin between two jobs
 			for {
-				/* Get current job status info */
-				current_job := process_current_job[process]
-				job_status[current_job].Lock()
-				current_job_status := job_status[current_job]
-				batch_size := current_job_status.BatchSize
-				current_batch_files := []string{}
+				// /* Get current job status info */
+				// current_job := process_current_job[process]
+				// job_status[current_job].Lock()
+				// current_job_status := job_status[current_job]
+				// batch_size := current_job_status.BatchSize
+				// current_batch_files := []string{}
 
-				queue := current_job_status.TaskQueues
-				if len(queue) == 0 {
-					/* No more tasks to do for this job. Done! */
-					job_status[current_job].Unlock()
-					jobs_lock.Lock()
-					running_jobs = RemoveFromIntList(running_jobs, current_job)
-					jobs_lock.Unlock()
-					// Set the process' next job to the remaining job.
-					process_current_job[process] = (current_job + 1) % 2
-					break
-				} else if len(queue) > batch_size {
-					current_batch_files = queue[:batch_size]
-					queue = queue[batch_size:]
-					// Update remaining tasks
-					current_job_status.TaskQueues = queue
-				} else {
-					current_batch_files = queue[:]
-					// Finish all the remaining tasks.
-					current_job_status.TaskQueues = nil
-				}
-				// Update the current process' in-progress work.
-				current_job_status.ProcessTestFiles[process] = current_batch_files
-				job_status[current_job] = current_job_status
-				job_status[current_job].Unlock()
+				// queue := current_job_status.TaskQueues
+				// if len(queue) == 0 {
+				// 	/* No more tasks to do for this job. Done! */
+				// 	job_status[current_job].Unlock()
+				// 	jobs_lock.Lock()
+				// 	running_jobs = RemoveFromIntList(running_jobs, current_job)
+				// 	jobs_lock.Unlock()
+				// 	// Set the process' next job to the remaining job.
+				// 	process_current_job[process] = (current_job + 1) % 2
+				// 	break
+				// } else if len(queue) > batch_size {
+				// 	current_batch_files = queue[:batch_size]
+				// 	queue = queue[batch_size:]
+				// 	// Update remaining tasks
+				// 	current_job_status.TaskQueues = queue
+				// } else {
+				// 	current_batch_files = queue[:]
+				// 	// Finish all the remaining tasks.
+				// 	current_job_status.TaskQueues = nil
+				// }
+				// // Update the current process' in-progress work.
+				// current_job_status.ProcessTestFiles[process] = current_batch_files
+				// job_status[current_job] = current_job_status
+				// job_status[current_job].Unlock()
 
-				log.Printf("Current batch files: %v", current_batch_files)
-				// Map of current batch file's metadata
-				files_replicas := make(map[string][]string)
-				// For each file in the batch, send it through channel.
-				for _, filename := range current_batch_files {
-					file_meta := file_metadata[filename].Replicas
-					files_replicas[filename] = file_meta
-				}
-				// TODO: Call askToReplicate and pass in files_replicas
-				current_batch := job_status[current_job].ProcessBatchProgress[process]
-				client_model.SendInferenceInformation(process+"3333", current_job, current_batch, files_replicas)
+				// log.Printf("Current batch files: %v", current_batch_files)
+				// // Map of current batch file's metadata
+				// files_replicas := make(map[string][]string)
+				// // For each file in the batch, send it through channel.
+				// for _, filename := range current_batch_files {
+				// 	file_meta := file_metadata[filename].Replicas
+				// 	files_replicas[filename] = file_meta
+				// }
+				// // TODO: Call askToReplicate and pass in files_replicas
+				// current_batch := job_status[current_job].ProcessBatchProgress[process]
+				// client_model.SendInferenceInformation(process+"3333", current_job, current_batch, files_replicas)
 
-				// Update process batch progress
-				job_status[current_job].ProcessBatchProgress[process] = current_batch + 1
-				// Move on to the next job.
-				next_job := (current_job + 1) % 2 // 0 ->1 or 1 -> 0
-				process_current_job[process] = next_job
-				log.Printf("Process %v's job %v's batch number %v is done! Moving on to the next batch.", process, current_job_status.JobId, current_batch)
+				// // Update process batch progress
+				// job_status[current_job].ProcessBatchProgress[process] = current_batch + 1
+				// // Move on to the next job.
+				// next_job := (current_job + 1) % 2 // 0 ->1 or 1 -> 0
+				// process_current_job[process] = next_job
+				// log.Printf("Process %v's job %v's batch number %v is done! Moving on to the next batch.", process, current_job_status.JobId, current_batch)
 			}
 		}
 	}

@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func Server(port int, input_channel chan utils.ChannelInMessage, output_channel chan utils.ChannelOutMessage, done chan bool, new_introducer_channel chan string, SchedulerInChannel chan utils.MLMessage, SchedulerOutChannel chan utils.MLMessage, grpc_node_channel chan map[int]utils.JobStatus, fileinfo *[]string) {
+func Server(port int, input_channel chan utils.ChannelInMessage, output_channel chan utils.ChannelOutMessage, done chan bool, new_introducer_channel chan string, SchedulerInChannel chan utils.MLMessage, SchedulerOutChannel chan utils.MLMessage, grpc_node_channel chan map[int]*utils.JobStatus, fileinfo *[]string) {
 	log.Printf("Started listening at port: %v", port)
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {

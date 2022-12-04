@@ -31,7 +31,7 @@ type Server struct {
 	scheduler_in_channel   chan utils.MLMessage
 	scheduler_out_channel  chan utils.MLMessage
 	new_introducer_channel chan string
-	grpc_node_channel      chan map[int]utils.JobStatus
+	grpc_node_channel      chan map[int]*utils.JobStatus
 	serverfileinfo         *[]string
 	storage                storage.Manager
 	fileproto.UnimplementedFileServiceServer
@@ -43,7 +43,7 @@ func NewServer(storage storage.Manager,
 	new_introducer_channel chan string,
 	SchedulerInChannel chan utils.MLMessage,
 	SchedulerOutChannel chan utils.MLMessage,
-	grpc_node_channel chan map[int]utils.JobStatus,
+	grpc_node_channel chan map[int]*utils.JobStatus,
 	serverfileinfo *[]string) Server {
 	return Server{
 		input_channel:          input_channel,
@@ -250,7 +250,7 @@ func (s Server) SendJobStatusReplication(ctx context.Context, req *fileproto.Job
 	response := fileproto.JobStatusResponse{
 		Status: "OK",
 	}
-	var new_job_status map[int]utils.JobStatus
+	var new_job_status map[int]*utils.JobStatus
 	gob.NewDecoder(bytes.NewReader(req.Info)).Decode(&new_job_status)
 	s.grpc_node_channel <- new_job_status
 	return &response, nil
@@ -322,7 +322,6 @@ func (s Server) PrintStatus(ctx context.Context, req *fileproto.PrintStatusReque
 	}
 	out, _ := <-s.scheduler_out_channel
 	buf := &bytes.Buffer{}
-	utils.PrintJob(out.JobInfo)
 
 	infos := out.JobInfo
 	err := gob.NewEncoder(buf).Encode(infos)
