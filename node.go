@@ -250,7 +250,7 @@ func handleTest(input string, input_list []string) {
 		utils.SetupPythonServer()
 	case "train":
 		size := 10
-		res, err := client_model.AskToInitializeModel("localhost:9999", 1, size, "image")
+		res, err := client_model.AskToInitializeModel("localhost:9999", 1, size, "image", "resnet50")
 		if err != nil {
 			log.Print("Test train error: ", err)
 			return
