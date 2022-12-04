@@ -1086,6 +1086,16 @@ func ReInitializeStatus(job_id int) {
 	}
 	job_status[job_id].TaskQueues = make([]string, len(all_files))
 	copy(job_status[job_id].TaskQueues, all_files)
+
+	/* Reinitialize batch progress and clear currently working on tasks */
+	membership_mutex.Lock()
+	mem_list, _ := GetMembershipList() //TODO: Fault Tolerance.
+	membership_mutex.Unlock()
+	mem_list = GetHostsFromID(mem_list)
+	for _, process := range mem_list {
+		job_status[job_id].ProcessBatchProgress[process] = 0
+		job_status[job_id].ProcessTestFiles[process] = []string{}
+	}
 }
 
 // This thread acts as the scheduler that allocates resources
