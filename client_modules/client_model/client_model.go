@@ -13,7 +13,7 @@ import (
 )
 
 // Client asks Server to setup the model in all virtual machines
-func ClientStartJob(addr string, job_id int, batch_size int, model_type string) (string, error) {
+func ClientStartJob(addr string, job_id int, batch_size int, model_type string, model_name string) (string, error) {
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Printf("ClientStartJob() did not connect: %v", err)
@@ -22,7 +22,7 @@ func ClientStartJob(addr string, job_id int, batch_size int, model_type string) 
 	defer conn.Close()
 
 	client := fileclient.NewClient(conn, nil)
-	res_status, err := client.StartJob(context.Background(), job_id, batch_size, model_type)
+	res_status, err := client.StartJob(context.Background(), job_id, batch_size, model_type, model_name)
 	if res_status != "OK" {
 		log.Print("Failed to initialize model")
 	}
@@ -81,7 +81,7 @@ func SendInferenceInformation(addr string, job_id int, batch_id int, file_replic
 }
 
 // Master asks Members in the Membership list to initialize their models
-func AskMemberToInitializeModels(addr string, job_id int, batch_size int, model_type string) (string, error) {
+func AskMemberToInitializeModels(addr string, job_id int, batch_size int, model_type string, model_name string) (string, error) {
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Printf("SendInferenceInformation() did not connect: %v", err)
@@ -89,7 +89,7 @@ func AskMemberToInitializeModels(addr string, job_id int, batch_size int, model_
 	}
 	defer conn.Close()
 	client := fileclient.NewClient(conn, nil)
-	res, err := client.AskMemberToInitializeModels(context.Background(), job_id, batch_size, model_type)
+	res, err := client.AskMemberToInitializeModels(context.Background(), job_id, batch_size, model_type, model_name)
 	if err != nil || res != "OK" {
 		log.Printf("AskMemberToInitializeModels() failed")
 		return "Send Information Failed Failed", err

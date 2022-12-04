@@ -211,7 +211,7 @@ func (s Server) StartJob(ctx context.Context, req *fileproto.JobRequest) (*filep
 	var err error
 	for _, member := range out.MembershipList {
 		log.Printf("Asking %v:3333 to initialize model", member)
-		_, err = client_model.AskMemberToInitializeModels(member+":3333", int(req.JobId), int(req.BatchSize), req.ModelType)
+		_, err = client_model.AskMemberToInitializeModels(member+":3333", int(req.JobId), int(req.BatchSize), req.ModelType, req.ModelName)
 		if err != nil {
 			log.Printf("Startjob failed to ask member to initialzie models for member: %v", member)
 			break

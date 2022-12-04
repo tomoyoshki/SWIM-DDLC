@@ -98,8 +98,9 @@ message JobRequest {
     int32 batch_size = 1;
     string model_type = 2;
     string model_stage = 3;
-    string data_folder = 4;
-    int32 job_id = 5;
+    string model_name = 4;
+    string data_folder = 5;
+    int32 job_id = 6;
 }
 
 message JobResponse {

@@ -421,7 +421,7 @@ func handleMLCommand(input string, input_list []string) {
 			log.Println("Invalid model name (resnet50 or resnet 18)")
 		}
 
-		_, err = client_model.ClientStartJob(MASTER_ADDRESS, job_id_int, batch_size_int, model_type)
+		_, err = client_model.ClientStartJob(MASTER_ADDRESS, job_id_int, batch_size_int, model_type, model_name)
 		if err != nil {
 			log.Println("Received error starting job from server")
 		}
