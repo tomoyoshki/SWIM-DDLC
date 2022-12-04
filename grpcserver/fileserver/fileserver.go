@@ -294,8 +294,15 @@ func (s Server) SendJobInformation(ctx context.Context, req *fileproto.JobInform
 	host_addr := fmt.Sprintf("%v:3333", req.SenderAddr)
 	this_host, _ := os.Hostname()
 	sdfsfilename := fmt.Sprintf("inference_result/%v/%v/%v/result.txt", req.JobId, this_host, req.BatchId)
-	go client.ClientUpload(host_addr, result_file_dir, sdfsfilename)
-	log.Printf("Inference for Job %v with Batch %d is done", req.JobId, req.BatchId)
+	addresses, new_sdfsfilename, err := client.ClientRequest(host_addr, result_file_dir, sdfsfilename, utils.PUT)
+	if err != nil {
+		log.Printf("Error Requesting for files: %v", err)
+	} else {
+		for _, fileserver_addr := range addresses {
+			target_addr_port := fmt.Sprintf("%s:%v", fileserver_addr, 3333)
+			go client.ClientUpload(target_addr_port, result_file_dir, new_sdfsfilename)
+		}
+	}
 	response.InferenceResult = res
 	return &response, nil
 }

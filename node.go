@@ -450,7 +450,7 @@ func handleMLCommand(input string, input_list []string) {
 			return
 		}
 	case "inference_result":
-		// inference_result job_id
+
 		if len(input_list) != 2 {
 			log.Println("Invalid job_status command [job_status (0 or 1 or None)]")
 			return
@@ -461,16 +461,35 @@ func handleMLCommand(input string, input_list []string) {
 			return
 		}
 
-		inference_file_name, _, err := client.ClientRequest("", "", "", utils.INFERENCE_RESULT_0)
+		result_id := utils.INFERENCE_RESULT_0
+		if job_id_int == 1 {
+			result_id = utils.INFERENCE_RESULT_1
+		}
+		inference_file_name, _, err := client.ClientRequest(MASTER_ADDRESS, "", "", result_id)
 		if err != nil {
 			log.Printf("Error Requesting for inferenece result files: %v", err)
 			break
 		}
 
-		result_dir := fmt.Sprintf("results/")
+		result_dir := fmt.Sprintf("results/job%v/", job_id_int)
 		for i, filename := range inference_file_name {
 			local_filename := fmt.Sprintf("%v%v-result.txt", result_dir, i)
-			client.ClientDownload(MASTER_ADDRESS, local_filename, filename)
+			addresses, new_sdfsfilename, err := client.ClientRequest(MASTER_ADDRESS, local_filename, filename, utils.GET)
+			if err != nil {
+				log.Printf("Error Requesting for files: %v", err)
+				break
+			}
+			for i, fileserver_addr := range addresses {
+				target_addr_port := fmt.Sprintf("%s:%v", fileserver_addr, MASTER_PORT_NUMBER)
+				log.Printf("Retrieving file %v from  node server %v", new_sdfsfilename, target_addr_port)
+				err := client.ClientDownload(target_addr_port, local_filename, new_sdfsfilename)
+				if err == nil {
+					break
+				}
+				if i == len(addresses)-1 {
+					utils.FormatPrint("Received no files")
+				}
+			}
 		}
 	default:
 		utils.FormatPrint(fmt.Sprintf("Invalid command [%v]", input_list))
@@ -1052,9 +1071,6 @@ func RoundRobin(process string) {
 				membership_mutex.Unlock()
 				mem_list = GetHostsFromID(mem_list)
 				failed := true
-
-				log.Println(mem_list)
-				log.Println(process)
 				for _, member := range mem_list {
 					if member == process {
 						failed = false
@@ -1378,12 +1394,12 @@ func MasterServer() {
 					if strings.HasPrefix(filename, "inference_result/0/") {
 						filenames = append(filenames, filename)
 					}
-					replicas := filenames
-					MasterOutgoingChannel <- utils.ChannelOutMessage{
-						Action:   utils.INFERENCE_RESULT_0,
-						Replicas: replicas,
-						Version:  -1}
 				}
+				replicas := filenames
+				MasterOutgoingChannel <- utils.ChannelOutMessage{
+					Action:   utils.INFERENCE_RESULT_0,
+					Replicas: replicas,
+					Version:  -1}
 
 			} else if client_order.Action == utils.INFERENCE_RESULT_1 {
 				filenames := []string{}
