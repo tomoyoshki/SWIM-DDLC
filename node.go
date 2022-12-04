@@ -1194,6 +1194,7 @@ func SchedulerServer() {
 			} else if new_job.Action == utils.INFERENCE {
 				// If the job exists previsouly, re-populate the tasks
 				if status, ok := job_status[new_job.JobID]; ok {
+					job_status[new_job.JobID].StartTime = time.Now() // Start time
 					if len(status.TaskQueues) == 0 {
 						log.Printf("Job %v is inferenced second time! Re-initializing..", new_job.JobID)
 						ReInitializeStatus(status.JobId)

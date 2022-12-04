@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Packet message type
@@ -109,6 +110,7 @@ type JobStatus struct {
 	QueryRate            float32             // Query rate
 	ModelType            string              // Current job's model type
 	ModelName            string              // Current job's model name
+	StartTime            time.Time           // Start time of INFERENCE (NOT INITIALIZATION)
 	ProcessBatchProgress map[string]int      // Maps process to its current batch number in the job (which batch in each N/10)
 	ProcessTestFiles     map[string][]string // Maps process to its assigned test files (of length each_process_total_task)
 	TaskQueues           []string
