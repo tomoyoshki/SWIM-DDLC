@@ -291,7 +291,7 @@ func (s Server) SendJobInformation(ctx context.Context, req *fileproto.JobInform
 	}
 
 	result_file_dir := fmt.Sprintf("./python/result/%v/%v/result.txt", req.JobId, req.BatchId)
-	host_addr := fmt.Sprintf(":3333", req.SenderAddress)
+	host_addr := fmt.Sprintf("%v:3333", req.SenderAddr)
 	this_host, _ := os.Hostname()
 	sdfsfilename := fmt.Sprintf("inference_result/%v/%v/%v/result.txt", this_host, req.JobId, req.BatchId)
 	go client.ClientUpload(host_addr, result_file_dir, sdfsfilename)
