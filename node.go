@@ -1051,6 +1051,7 @@ func RoundRobin(process string) {
 					jobs_lock.Lock()
 					running_jobs = RemoveFromIntList(running_jobs, current_job)
 					jobs_lock.Unlock()
+					process_current_job[process] = (current_job + 1) % 2
 					break
 				}
 
