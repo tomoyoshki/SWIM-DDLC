@@ -909,7 +909,9 @@ func NodeClient() {
 				}
 			}
 		case replicated_job_status := <-grpc_node_channel:
-			job_status = replicated_job_status
+			if this_host+":3333" != MASTER_ADDRESS {
+				job_status = replicated_job_status
+			}
 		case <-done:
 			return
 		}

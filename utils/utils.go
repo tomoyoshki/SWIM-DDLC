@@ -148,9 +148,11 @@ func (j *JobStatus) AssignWorks(process string) ([]string, int, int) {
 }
 
 func (j *JobStatus) UpdateCount(size int) {
+	log.Println("Something")
 	j.countlock.Lock()
 	j.QueryCount += size
 	j.countlock.Unlock()
+	log.Println("Like this")
 }
 
 // Completes the work done.
