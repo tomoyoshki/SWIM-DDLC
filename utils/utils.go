@@ -112,8 +112,8 @@ type JobStatus struct {
 	ProcessBatchProgress map[string]int      // Maps process to its current batch number in the job (which batch in each N/10)
 	ProcessTestFiles     map[string][]string // Maps process to its assigned test files (of length each_process_total_task)
 	TaskQueues           []string
+	Workers              []string // List of existing worker processes
 	tasklock             sync.Mutex
-	workers              []string // List of existing worker processes
 }
 
 func (j *JobStatus) AssignWorks(process string) ([]string, int, int) {

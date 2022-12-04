@@ -1000,7 +1000,9 @@ func InitializeJobStatus(job_id int, model_name string, model_type string, batch
 	mem_list, _ := GetMembershipList()
 	membership_mutex.Unlock()
 	N := len(mem_list)
+	mem_list = GetHostsFromID(mem_list)
 	new_status.NumWorkers = N
+	new_status.Workers = mem_list
 	new_status.ProcessBatchProgress = make(map[string]int)
 	new_status.ProcessTestFiles = make(map[string][]string)
 	for _, process := range mem_list {
@@ -1068,6 +1070,10 @@ func RoundRobin(process string) {
 					}
 				}
 				if failed {
+					/* Update job status for this job */
+					job_status[current_job].Workers = mem_list
+					job_status[current_job].NumWorkers = len(mem_list)
+					log.Printf("Process %v failed! Exits round-robin for this process!", process)
 					return
 				}
 				continue
@@ -1098,7 +1104,7 @@ func RoundRobin(process string) {
 					file_meta := file_metadata[filename].Replicas
 					files_replicas[filename] = file_meta
 				}
-				// TODO: Call askToReplicate and pass in files_replicas
+				// Ask this process to fetch and inference the test data.
 				log.Printf("Scheduler send to process %v to process job %v on batch %v!", process, current_job, current_batch)
 				result := client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas)
 
@@ -1119,6 +1125,9 @@ func RoundRobin(process string) {
 						}
 					}
 					if failed {
+						/* Update job status for this job */
+						job_status[current_job].Workers = mem_list
+						job_status[current_job].NumWorkers = len(mem_list)
 						log.Printf("Process %v failed! Exits round-robin for this process!", process)
 						return
 					}
@@ -1156,7 +1165,8 @@ func ReInitializeStatus(job_id int) {
 		job_status[job_id].ProcessBatchProgress[process] = 0
 		job_status[job_id].ProcessTestFiles[process] = []string{}
 	}
-
+	job_status[job_id].NumWorkers = len(mem_list)
+	job_status[job_id].Workers = mem_list
 	job_status[job_id].QueryCount = 0
 	job_status[job_id].QueryRate = 0
 }
