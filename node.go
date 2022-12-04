@@ -230,53 +230,11 @@ func main() {
 			node_server.Close()
 			done <- true
 			ticker.Stop()
-		} else if input_list[0] == "test" {
-			handleTest(input, input_list)
 		} else {
 			command := strings.ToLower(input_list[0])
 			handleSDFSCommand(command, input_list)
 		}
 		fmt.Fprintf(os.Stdout, "\n> ")
-	}
-}
-
-func handleTest(input string, input_list []string) {
-	if len(input_list) == 1 {
-		log.Println("Invalid test command [python, train, inference, start]")
-	}
-	command := input_list[1]
-	switch command {
-	case "python":
-		utils.SetupPythonServer()
-	case "train":
-		size := 10
-		res, err := client_model.AskToInitializeModel("localhost:9999", 1, size, "image", "resnet50")
-		if err != nil {
-			log.Print("Test train error: ", err)
-			return
-		}
-		log.Printf("Test Train Response: %v", res)
-	case "inference":
-		inference_res, err := client_model.AskToInference("localhost:9999", 1, 0, 1, "python/data/")
-		if err != nil {
-			log.Println("AskToInference fails")
-			return
-		}
-		ires := make(map[string][]string)
-		err = json.Unmarshal(inference_res, &ires)
-		if err != nil {
-			// log.println("")
-			log.Println(err)
-		}
-		for k, v := range ires {
-			log.Printf("%v: %v", k, v)
-		}
-	case "start":
-		replicas := make(map[string][]string)
-		replicas["1-image1.jpg"] = []string{"fa22-cs425-7501.cs.illinois.edu:3333"}
-		client_model.SendInferenceInformation("fa22-cs425-7503.cs.illinois.edu:3333", 1, 0, replicas)
-	default:
-		log.Println("Invalid test command [python, train, inference, start]")
 	}
 }
 
@@ -491,6 +449,8 @@ func handleMLCommand(input string, input_list []string) {
 			log.Println("Received error requesting job status")
 			return
 		}
+	default:
+		utils.FormatPrint(fmt.Sprintf("Invalid command [%v]", input_list))
 	}
 
 }
@@ -1052,7 +1012,7 @@ func RoundRobin(process string) {
 
 			// TODO: Call askToReplicate and pass in files_replicas
 			// log.Printf("Sending batch of size %v to process %v", len(files_replicas), process)
-			result := client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas)
+			result := client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas, job_status)
 			if result != nil {
 				// The inference was successfully completed and stored.
 				job_status[current_job].UpdateCount(len(current_batch_files))
@@ -1111,7 +1071,7 @@ func RoundRobin(process string) {
 				}
 				// Ask this process to fetch and inference the test data.
 				log.Printf("Scheduler send to process %v to process job %v on batch %v!", process, current_job, current_batch)
-				result := client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas)
+				result := client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas, job_status)
 
 				if result != nil {
 					// The inference was successfully completed and stored.
