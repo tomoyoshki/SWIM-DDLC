@@ -1038,45 +1038,22 @@ func RoundRobin(process string) {
 			client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas)
 
 			// Update process batch progress
-
 			job_status[current_job].ProcessBatchProgress[process] = current_batch + 1
 			log.Printf("Process %v's job %v's batch number %v is done! Moving on to the next batch.", process, current_job, current_batch)
+
 		} else if current_number_of_jobs == 2 {
 			// Round robin between two jobs
 			for {
 				/* Get current job status info */
 				current_job := process_current_job[process]
-				job_status[current_job].Lock()
-				current_job_status := job_status[current_job]
-				batch_size := current_job_status.BatchSize
-				current_batch_files := []string{}
-
-				queue := current_job_status.TaskQueues
-				if len(queue) == 0 {
-					/* No more tasks to do for this job. Done! */
-					job_status[current_job].Unlock()
+				current_batch_files, current_batch, res := job_status[current_job].AssignWorks(process)
+				if res == 0 {
 					jobs_lock.Lock()
 					running_jobs = RemoveFromIntList(running_jobs, current_job)
 					jobs_lock.Unlock()
-					// Set the process' next job to the remaining job.
-					process_current_job[process] = (current_job + 1) % 2
 					break
-				} else if len(queue) > batch_size {
-					current_batch_files = queue[:batch_size]
-					queue = queue[batch_size:]
-					// Update remaining tasks
-					current_job_status.TaskQueues = queue
-				} else {
-					current_batch_files = queue[:]
-					// Finish all the remaining tasks.
-					current_job_status.TaskQueues = nil
 				}
-				// Update the current process' in-progress work.
-				current_job_status.ProcessTestFiles[process] = current_batch_files
-				job_status[current_job] = current_job_status
-				job_status[current_job].Unlock()
 
-				log.Printf("Current batch files: %v", current_batch_files)
 				// Map of current batch file's metadata
 				files_replicas := make(map[string][]string)
 				// For each file in the batch, send it through channel.
@@ -1085,15 +1062,14 @@ func RoundRobin(process string) {
 					files_replicas[filename] = file_meta
 				}
 				// TODO: Call askToReplicate and pass in files_replicas
-				current_batch := job_status[current_job].ProcessBatchProgress[process]
 				client_model.SendInferenceInformation(process+"3333", current_job, current_batch, files_replicas)
 
-				// Update process batch progress
+				// After finish, update process batch progress
 				job_status[current_job].ProcessBatchProgress[process] = current_batch + 1
 				// Move on to the next job.
 				next_job := (current_job + 1) % 2 // 0 ->1 or 1 -> 0
 				process_current_job[process] = next_job
-				log.Printf("Process %v's job %v's batch number %v is done! Moving on to the next batch.", process, current_job_status.JobId, current_batch)
+				log.Printf("Process %v's job %v's batch number %v is done! Moving on to the next round robin.", process, current_job, current_batch)
 			}
 		}
 	}
@@ -1133,7 +1109,9 @@ func SchedulerServer() {
 				// If the job exists previsouly, re-populate the tasks
 				if status, ok := job_status[new_job.JobID]; ok {
 					if len(status.TaskQueues) == 0 {
+						log.Printf("Job %v is inferenced second time! Re-initializing..", new_job.JobID)
 						ReInitializeStatus(status.JobId)
+						log.Printf("Job %v's task is reinitialized!", new_job.JobID)
 					}
 				} else {
 					// Job is not initialized!
