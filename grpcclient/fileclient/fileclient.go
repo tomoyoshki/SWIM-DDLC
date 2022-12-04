@@ -84,7 +84,8 @@ func (c Client) Download(localfilename string, sdfsfilename string) error {
 		},
 	)
 	if err != nil {
-		log.Fatal(err)
+		// log.Fatal(err)
+		log.Println("Download(): ", err)
 	}
 	file := storage.NewFile(localfilename)
 	for {
