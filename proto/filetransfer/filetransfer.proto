@@ -112,6 +112,7 @@ message JobInformationRequest {
     int32 job_id = 2;
     bytes replicas = 3;
     bytes job_status = 4;
+    string sender_addr = 5;
 }
 
 message JobInformationResponse {
