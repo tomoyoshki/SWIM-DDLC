@@ -218,16 +218,25 @@ func (c Client) RequestRemove(ctx context.Context, job_id int) (string, error) {
 }
 
 // Coordinator tell some machine which replicas have files, return the result that machine inferenced on
-func (c Client) SendJobInformation(ctx context.Context, batch_id int, job_id int, replicas map[string][]string) (map[string][]string, error) {
+func (c Client) SendJobInformation(ctx context.Context, batch_id int, job_id int, replicas map[string][]string, job_status map[int]*utils.JobStatus) (map[string][]string, error) {
 	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(100*time.Second))
 	defer cancel()
 	buf := &bytes.Buffer{}
 	gob.NewEncoder(buf).Encode(replicas)
 	replicas_bytes := buf.Bytes()
+
+	buf2 := &bytes.Buffer{}
+	err := gob.NewEncoder(buf2).Encode(job_status)
+	if err != nil {
+		log.Println("SendJobInformation(): Error encoding job_status ", err)
+		return nil, err
+	}
+	job_status_bytes := buf2.Bytes()
 	res, err := c.client.SendJobInformation(ctx, &fileproto.JobInformationRequest{
-		BatchId:  int32(batch_id),
-		JobId:    int32(job_id),
-		Replicas: replicas_bytes,
+		BatchId:   int32(batch_id),
+		JobId:     int32(job_id),
+		Replicas:  replicas_bytes,
+		JobStatus: job_status_bytes,
 	})
 
 	if err != nil {
@@ -301,7 +310,9 @@ func (c Client) RequestJobStatus(ctx context.Context, job_id int) (string, error
 		return "PrintStatus returned error", err
 	}
 
-	log.Println(res.Info)
+	if len(res.Info) == 0 {
+		return "OK", nil
+	}
 	var results *utils.JobStatus
 	gob.NewDecoder(bytes.NewReader(res.Info)).Decode(&results)
 	utils.PrintJob(results)

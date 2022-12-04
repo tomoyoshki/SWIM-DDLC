@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Packet message type
@@ -35,6 +36,7 @@ const (
 	INFERENCE   = 8
 	REMOVE      = 9
 	STATUS      = 10
+	FAILED      = 11
 )
 
 func SetupPythonServer() {
@@ -104,13 +106,17 @@ type JobStatus struct {
 	JobId                int                 // Id of the job
 	BatchSize            int                 // Batch size
 	NumWorkers           int                 // Number of workers doing this job
+	QueryCount           int                 // Number of tasks done for this job.
 	QueryRate            float32             // Query rate
 	ModelType            string              // Current job's model type
 	ModelName            string              // Current job's model name
+	StartTime            time.Time           // Start time of INFERENCE (NOT INITIALIZATION)
 	ProcessBatchProgress map[string]int      // Maps process to its current batch number in the job (which batch in each N/10)
 	ProcessTestFiles     map[string][]string // Maps process to its assigned test files (of length each_process_total_task)
 	TaskQueues           []string
+	Workers              []string // List of existing worker processes
 	tasklock             sync.Mutex
+	countlock            sync.Mutex
 }
 
 func (j *JobStatus) AssignWorks(process string) ([]string, int, int) {
@@ -141,17 +147,26 @@ func (j *JobStatus) AssignWorks(process string) ([]string, int, int) {
 	return current_batch_files, current_batch, 1
 }
 
-// func (j *JobStatus) Lock() {
-// j.tasklock.Lock()
-// }
+func (j *JobStatus) UpdateCount(size int) {
+	j.countlock.Lock()
+	j.QueryCount += size
+	j.countlock.Unlock()
+}
 
-// func (j *JobStatus) Unlock() {
-// j.tasklock.Unlock()
-// }
+// Completes the work done.
+func (j *JobStatus) RestoreTasks(process string, tasks []string) {
+	j.tasklock.Lock()
 
-// func (j *JobStatus) AssignLock(lock *sync.Mutex) {
-// j.tasklock = lock
-// }
+	queue := j.TaskQueues
+	queue = append(tasks, queue...)
+	j.TaskQueues = queue
+	log.Printf("Restored process %v tasks for job %v, the length of queue is %v", process, j.JobId, len(queue))
+	// Set the current process' to empty
+	j.ProcessTestFiles[process] = []string{}
+
+	// Update the global job status.
+	j.tasklock.Unlock()
+}
 
 func CreateFileDirectory(filepath string) {
 	target_filename_array := strings.Split(filepath, "/")
@@ -214,14 +229,21 @@ func PrintJob(job *JobStatus) {
 	fmt.Print("Printing job info\n")
 	fmt.Println(strings.Repeat("=", 80))
 	fmt.Println("=\tJob Id: ", job.JobId)
+	fmt.Println("=\tJob Start Time ", job.StartTime.String())
 	fmt.Println("=\tCurrent Batch size: ", job.BatchSize)
-	fmt.Println("=\tQuery rate: ", job.QueryRate)
+	query_rate := float64(job.QueryCount) / time.Now().Sub(job.StartTime).Seconds()
+	fmt.Printf("=\tQuery rate: %v/s\n", query_rate)
+	fmt.Println("=\tQuery count: ", job.QueryCount)
 	fmt.Println("=\tModel type: ", job.ModelType)
 	fmt.Println("=\tModel name: ", job.ModelName)
 	fmt.Println("=\tRemaining files: ", len(job.TaskQueues))
+	fmt.Println("=\tWorkers for this job")
+	for i, worker := range job.Workers {
+		fmt.Printf("=\t\t%v: %v\n", i, worker)
+	}
 	fmt.Println("=\tVMs assigned to this job")
-	for process := range job.ProcessTestFiles {
-		fmt.Printf("=\t\t%v\n", process)
+	for process, file := range job.ProcessTestFiles {
+		fmt.Printf("=\t\t%v: %v\n", process, len(file))
 	}
 	fmt.Println(strings.Repeat("=", 80))
 }

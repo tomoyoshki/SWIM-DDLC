@@ -111,6 +111,7 @@ message JobInformationRequest {
     int32 batch_id = 1;
     int32 job_id = 2;
     bytes replicas = 3;
+    bytes job_status = 4;
 }
 
 message JobInformationResponse {

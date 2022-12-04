@@ -230,53 +230,11 @@ func main() {
 			node_server.Close()
 			done <- true
 			ticker.Stop()
-		} else if input_list[0] == "test" {
-			handleTest(input, input_list)
 		} else {
 			command := strings.ToLower(input_list[0])
 			handleSDFSCommand(command, input_list)
 		}
 		fmt.Fprintf(os.Stdout, "\n> ")
-	}
-}
-
-func handleTest(input string, input_list []string) {
-	if len(input_list) == 1 {
-		log.Println("Invalid test command [python, train, inference, start]")
-	}
-	command := input_list[1]
-	switch command {
-	case "python":
-		utils.SetupPythonServer()
-	case "train":
-		size := 10
-		res, err := client_model.AskToInitializeModel("localhost:9999", 1, size, "image")
-		if err != nil {
-			log.Print("Test train error: ", err)
-			return
-		}
-		log.Printf("Test Train Response: %v", res)
-	case "inference":
-		inference_res, err := client_model.AskToInference("localhost:9999", 1, 0, 1, "python/data/")
-		if err != nil {
-			log.Println("AskToInference fails")
-			return
-		}
-		ires := make(map[string][]string)
-		err = json.Unmarshal(inference_res, &ires)
-		if err != nil {
-			// log.println("")
-			log.Println(err)
-		}
-		for k, v := range ires {
-			log.Printf("%v: %v", k, v)
-		}
-	case "start":
-		replicas := make(map[string][]string)
-		replicas["1-image1.jpg"] = []string{"fa22-cs425-7501.cs.illinois.edu:3333"}
-		client_model.SendInferenceInformation("fa22-cs425-7503.cs.illinois.edu:3333", 1, 0, replicas)
-	default:
-		log.Println("Invalid test command [python, train, inference, start]")
 	}
 }
 
@@ -465,20 +423,34 @@ func handleMLCommand(input string, input_list []string) {
 			log.Println("Invalid job_status command [job_status (0 or 1 or None)]")
 			return
 		}
-		job_id := 0
-		if len(input_list) == 2 {
-			job_id_int, err := strconv.Atoi(input_list[1])
-			if err != nil || (job_id_int != 0 && job_id_int != 1) {
-				log.Println("Invalid job_id (0, 1)")
+		if len(input_list) == 1 {
+			_, err := client_model.ClientRequestJobStatus(MASTER_ADDRESS, 0)
+			if err != nil {
+				log.Println("Received error requesting job status")
 				return
 			}
-			job_id = job_id_int
+
+			_, err = client_model.ClientRequestJobStatus(MASTER_ADDRESS, 1)
+			if err != nil {
+				log.Println("Received error requesting job status")
+				return
+			}
+			return
 		}
-		_, err := client_model.ClientRequestJobStatus(MASTER_ADDRESS, job_id)
+		job_id := 0
+		job_id_int, err := strconv.Atoi(input_list[1])
+		if err != nil || (job_id_int != 0 && job_id_int != 1) {
+			log.Println("Invalid job_id (0, 1)")
+			return
+		}
+		job_id = job_id_int
+		_, err = client_model.ClientRequestJobStatus(MASTER_ADDRESS, job_id)
 		if err != nil {
 			log.Println("Received error requesting job status")
 			return
 		}
+	default:
+		utils.FormatPrint(fmt.Sprintf("Invalid command [%v]", input_list))
 	}
 
 }
@@ -982,11 +954,15 @@ func InitializeJobStatus(job_id int, model_name string, model_type string, batch
 	new_status.BatchSize = batch_size
 	new_status.ModelType = model_type
 	new_status.ModelName = model_name
+	new_status.QueryCount = 0
+	new_status.QueryRate = 0
 	membership_mutex.Lock()
 	mem_list, _ := GetMembershipList()
 	membership_mutex.Unlock()
 	N := len(mem_list)
+	mem_list = GetHostsFromID(mem_list)
 	new_status.NumWorkers = N
+	new_status.Workers = mem_list
 	new_status.ProcessBatchProgress = make(map[string]int)
 	new_status.ProcessTestFiles = make(map[string][]string)
 	for _, process := range mem_list {
@@ -1012,7 +988,7 @@ func RoundRobin(process string) {
 		jobs_lock.Unlock()
 		if current_number_of_jobs == 0 {
 			round_robin_running = false
-			log.Printf("All Jobs are DONE!")
+			log.Printf("Process %v: All Jobs are DONE!", process)
 			// TODO: Clear all job status!
 			break
 		} else if current_number_of_jobs == 1 {
@@ -1020,10 +996,11 @@ func RoundRobin(process string) {
 			current_job := process_current_job[process]
 			current_batch_files, current_batch, res := job_status[current_job].AssignWorks(process)
 			if res == 0 {
+				log.Printf("Process %v have no more tasks to do (queue empty) for job %v, so it removes this job.", process, current_job)
 				jobs_lock.Lock()
 				running_jobs = RemoveFromIntList(running_jobs, current_job)
 				jobs_lock.Unlock()
-				break
+				continue
 			}
 
 			files_replicas := make(map[string][]string)
@@ -1034,8 +1011,38 @@ func RoundRobin(process string) {
 			}
 
 			// TODO: Call askToReplicate and pass in files_replicas
-			log.Printf("Sending batch of size %v to process %v", len(files_replicas), process)
-			client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas)
+			// log.Printf("Sending batch of size %v to process %v", len(files_replicas), process)
+			result := client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas, job_status)
+			if result != nil {
+				// The inference was successfully completed and stored.
+				job_status[current_job].UpdateCount(len(current_batch_files))
+				// job_status[current_job].QueryCount += len(current_batch_files)
+			} else {
+				// An error occurred for this process. Need to put the current batch files back.
+				job_status[current_job].RestoreTasks(process, current_batch_files)
+				membership_mutex.Lock()
+				mem_list, _ := GetMembershipList()
+				membership_mutex.Unlock()
+				mem_list = GetHostsFromID(mem_list)
+				failed := true
+
+				log.Println(mem_list)
+				log.Println(process)
+				for _, member := range mem_list {
+					if member == process {
+						failed = false
+						break
+					}
+				}
+				if failed {
+					/* Update job status for this job */
+					job_status[current_job].Workers = mem_list
+					job_status[current_job].NumWorkers = len(mem_list)
+					log.Printf("Process %v failed! Exits round-robin for this process!", process)
+					return
+				}
+				continue
+			}
 
 			// Update process batch progress
 			job_status[current_job].ProcessBatchProgress[process] = current_batch + 1
@@ -1051,6 +1058,7 @@ func RoundRobin(process string) {
 					jobs_lock.Lock()
 					running_jobs = RemoveFromIntList(running_jobs, current_job)
 					jobs_lock.Unlock()
+					process_current_job[process] = (current_job + 1) % 2
 					break
 				}
 
@@ -1061,9 +1069,36 @@ func RoundRobin(process string) {
 					file_meta := file_metadata[filename].Replicas
 					files_replicas[filename] = file_meta
 				}
-				// TODO: Call askToReplicate and pass in files_replicas
-				client_model.SendInferenceInformation(process+"3333", current_job, current_batch, files_replicas)
+				// Ask this process to fetch and inference the test data.
+				log.Printf("Scheduler send to process %v to process job %v on batch %v!", process, current_job, current_batch)
+				result := client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas, job_status)
 
+				if result != nil {
+					// The inference was successfully completed and stored.
+					job_status[current_job].UpdateCount(len(current_batch_files))
+				} else {
+					// An error occurred for this process. Need to put the current batch files back.
+					job_status[current_job].RestoreTasks(process, current_batch_files)
+					membership_mutex.Lock()
+					mem_list, _ := GetMembershipList()
+					membership_mutex.Unlock()
+					mem_list = GetHostsFromID(mem_list)
+					failed := true
+					for _, member := range mem_list {
+						if member == process {
+							failed = false
+							break
+						}
+					}
+					if failed {
+						/* Update job status for this job */
+						job_status[current_job].Workers = mem_list
+						job_status[current_job].NumWorkers = len(mem_list)
+						log.Printf("Process %v failed! Exits round-robin for this process!", process)
+						return
+					}
+					continue
+				}
 				// After finish, update process batch progress
 				job_status[current_job].ProcessBatchProgress[process] = current_batch + 1
 				// Move on to the next job.
@@ -1086,10 +1121,48 @@ func ReInitializeStatus(job_id int) {
 	}
 	job_status[job_id].TaskQueues = make([]string, len(all_files))
 	copy(job_status[job_id].TaskQueues, all_files)
+
+	/* Reinitialize batch progress and clear currently working on tasks */
+	membership_mutex.Lock()
+	mem_list, _ := GetMembershipList() //TODO: Fault Tolerance.
+	membership_mutex.Unlock()
+	mem_list = GetHostsFromID(mem_list)
+	for _, process := range mem_list {
+		job_status[job_id].ProcessBatchProgress[process] = 0
+		job_status[job_id].ProcessTestFiles[process] = []string{}
+	}
+	job_status[job_id].NumWorkers = len(mem_list)
+	job_status[job_id].Workers = mem_list
+	job_status[job_id].QueryCount = 0
+	job_status[job_id].QueryRate = 0
 }
 
 // This thread acts as the scheduler that allocates resources
 func SchedulerServer() {
+	// If this is a newly elected leader after the previous one crashed, check existing jobs.
+	for job_id, status := range job_status {
+		if status.QueryCount < len(status.TaskQueues) {
+			// There are remaining tasks for this job to finish.
+			log.Printf("Job %v continues referencing!", job_id)
+			// Restarts running
+			if round_robin_running {
+				running_jobs = append(running_jobs, job_id) // 2nd job
+			} else {
+				running_jobs = append(running_jobs, job_id) // 1st job
+				round_robin_running = true
+				log.Printf("The running job is running_jobs %v", running_jobs)
+				members_host := GetHostsFromID(membership_list) // Get rid of timestamp
+				for _, process := range members_host {
+					// Set the first job to be this jobID for all processes.
+					process_current_job[process] = job_id
+					log.Printf("Scheduler asks process %v to perform round-robin!", process)
+					// Allocate the test files for each process concurrently.
+					go RoundRobin(process)
+				}
+			}
+		}
+	}
+
 	for {
 		select {
 		case new_job := <-SchedulerInChannel:
@@ -1108,6 +1181,7 @@ func SchedulerServer() {
 			} else if new_job.Action == utils.INFERENCE {
 				// If the job exists previsouly, re-populate the tasks
 				if status, ok := job_status[new_job.JobID]; ok {
+					job_status[new_job.JobID].StartTime = time.Now() // Start time
 					if len(status.TaskQueues) == 0 {
 						log.Printf("Job %v is inferenced second time! Re-initializing..", new_job.JobID)
 						ReInitializeStatus(status.JobId)
@@ -1133,6 +1207,7 @@ func SchedulerServer() {
 						// ScheduleWaitGroup.Add(1)
 						// Set the first job to be this jobID for all processes.
 						process_current_job[process] = new_job.JobID
+						log.Printf("Scheduler asks process %v to perform round-robin!", process)
 						// Allocate the test files for each process concurrently.
 						go RoundRobin(process)
 					}
@@ -1147,9 +1222,16 @@ func SchedulerServer() {
 					Action:         utils.REMOVE,
 					MembershipList: mem_list}
 			} else if new_job.Action == utils.STATUS {
-				SchedulerOutChannel <- utils.MLMessage{
-					Action:  utils.STATUS,
-					JobInfo: job_status[new_job.JobID],
+				if _, ok := job_status[new_job.JobID]; ok {
+					//do something here
+					SchedulerOutChannel <- utils.MLMessage{
+						Action:  utils.STATUS,
+						JobInfo: job_status[new_job.JobID],
+					}
+				} else {
+					SchedulerOutChannel <- utils.MLMessage{
+						Action: utils.FAILED,
+					}
 				}
 			}
 		}

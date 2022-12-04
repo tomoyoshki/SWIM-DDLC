@@ -263,10 +263,14 @@ func (s Server) SendJobInformation(ctx context.Context, req *fileproto.JobInform
 		Status: "OK",
 	}
 
-	// log.Println("Received SendJobInformation()")
 	file_prefix := fmt.Sprintf("python/data/%d/%d/", req.JobId, req.BatchId)
 	var file_replicas map[string][]string
 	gob.NewDecoder(bytes.NewReader(req.Replicas)).Decode(&file_replicas)
+
+	var job_status map[int]*utils.JobStatus
+	gob.NewDecoder(bytes.NewReader(req.JobStatus)).Decode(&file_replicas)
+
+	s.grpc_node_channel <- job_status
 
 	// for each file in the batch, download it to python/data/job_id/batch_id/sdfsfilename
 	for file_name, replicas := range file_replicas {
@@ -322,6 +326,12 @@ func (s Server) PrintStatus(ctx context.Context, req *fileproto.PrintStatusReque
 		JobID:  int(req.JobId),
 	}
 	out, _ := <-s.scheduler_out_channel
+
+	if out.Action == utils.FAILED {
+		return &fileproto.PrintStatusResponse{
+			Info: []byte{},
+		}, nil
+	}
 	buf := &bytes.Buffer{}
 
 	infos := out.JobInfo
