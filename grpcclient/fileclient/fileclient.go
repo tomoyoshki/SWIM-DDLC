@@ -235,11 +235,13 @@ func (c Client) SendJobInformation(ctx context.Context, batch_id int, job_id int
 	}
 	job_status_bytes := buf2.Bytes()
 
+	host, _ := os.Hostname()
 	res, err := c.client.SendJobInformation(ctx, &fileproto.JobInformationRequest{
-		BatchId:   int32(batch_id),
-		JobId:     int32(job_id),
-		Replicas:  replicas_bytes,
-		JobStatus: job_status_bytes,
+		BatchId:    int32(batch_id),
+		JobId:      int32(job_id),
+		Replicas:   replicas_bytes,
+		JobStatus:  job_status_bytes,
+		SenderAddr: host,
 	})
 
 	if err != nil {

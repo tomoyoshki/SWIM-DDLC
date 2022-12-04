@@ -449,6 +449,9 @@ func handleMLCommand(input string, input_list []string) {
 			log.Println("Received error requesting job status")
 			return
 		}
+	case "inference_result" {
+		
+	}
 	default:
 		utils.FormatPrint(fmt.Sprintf("Invalid command [%v]", input_list))
 	}
@@ -1144,7 +1147,6 @@ func ReInitializeStatus(job_id int) {
 	job_status[job_id].QueryCount = 0
 	job_status[job_id].QueryRate = 0
 }
-
 
 func RestoreJobStatus(job_id int) {
 	status := job_status[job_id]
