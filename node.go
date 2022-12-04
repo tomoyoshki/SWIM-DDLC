@@ -1418,12 +1418,12 @@ func MasterServer() {
 					if strings.HasPrefix(filename, "inference_result/1/") {
 						filenames = append(filenames, filename)
 					}
-					replicas := filenames
-					MasterOutgoingChannel <- utils.ChannelOutMessage{
-						Action:   utils.INFERENCE_RESULT_1,
-						Replicas: replicas,
-						Version:  -1}
 				}
+				replicas := filenames
+				MasterOutgoingChannel <- utils.ChannelOutMessage{
+					Action:   utils.INFERENCE_RESULT_0,
+					Replicas: replicas,
+					Version:  -1}
 
 			}
 			// MasterFailChannel is filled after the failed_process is deleted
