@@ -137,7 +137,7 @@ class GoPythonServer(GoPythonServicer):
         logging.info("Master requesting to intialize model")
         resp = InitializeResponse(status="OK")
         model_type = request.model_type
-        res = prepareModel(request.job_id, request.batch_size, model_type, req.model_name)
+        res = prepareModel(request.job_id, request.batch_size, model_type, request.model_name)
         if res == -1:
             resp.status = "Error"
         elif res == -2:
