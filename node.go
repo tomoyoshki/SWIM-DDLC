@@ -1141,11 +1141,27 @@ func ReInitializeStatus(job_id int) {
 	job_status[job_id].QueryRate = 0
 }
 
+
+func RestoreJobStatus(job_id int) {
+	stauts := job_status[job_id]
+
+	/* Update Workers */
+	membership_mutex.Lock()
+	mem_list, _ := GetMembershipList()
+	membership_mutex.Unlock()
+	mem_list = GetHostsFromID(mem_list)
+	status.Workers = mem_list
+	status.N = len(mem_list)
+
+	// status.TaskQueues
+}
+
 // This thread acts as the scheduler that allocates resources
 func SchedulerServer() {
 	// If this is a newly elected leader after the previous one crashed, check existing jobs.
 	for job_id, status := range job_status {
 		if status.QueryCount < len(status.TaskQueues) {
+			RestoreJobStatus(job_id)
 			// There are remaining tasks for this job to finish.
 			log.Printf("Job %v continues referencing!", job_id)
 			// Restarts running
