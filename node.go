@@ -1032,10 +1032,11 @@ func RoundRobin(process string) {
 			current_job := process_current_job[process]
 			current_batch_files, current_batch, res := job_status[current_job].AssignWorks(process)
 			if res == 0 {
+				log.Printf("Process %v have no more tasks to do (queue empty) for job %v, so it removes this job.", process, current_job)
 				jobs_lock.Lock()
 				running_jobs = RemoveFromIntList(running_jobs, current_job)
 				jobs_lock.Unlock()
-				break
+				continue
 			}
 
 			files_replicas := make(map[string][]string)
@@ -1075,6 +1076,7 @@ func RoundRobin(process string) {
 					files_replicas[filename] = file_meta
 				}
 				// TODO: Call askToReplicate and pass in files_replicas
+				log.Printf("Scheduler send to process %v to process job %v on batch %v!", process, current_job, current_batch)
 				client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas)
 
 				// After finish, update process batch progress
@@ -1156,6 +1158,7 @@ func SchedulerServer() {
 						// ScheduleWaitGroup.Add(1)
 						// Set the first job to be this jobID for all processes.
 						process_current_job[process] = new_job.JobID
+						log.Printf("Scheduler asks process %v to perform round-robin!", process)
 						// Allocate the test files for each process concurrently.
 						go RoundRobin(process)
 					}
