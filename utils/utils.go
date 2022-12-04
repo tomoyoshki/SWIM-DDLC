@@ -170,6 +170,13 @@ func (j *JobStatus) RestoreTasks(process string, tasks []string) {
 	j.tasklock.Unlock()
 }
 
+func (j *JobStatus) CalculateQueryRate() float64 {
+	j.countlock.Lock()
+	count := float64(j.QueryCount) / time.Now().Sub(j.StartTime).Seconds()
+	j.countlock.Unlock()
+	return count
+}
+
 func CreateFileDirectory(filepath string) {
 	target_filename_array := strings.Split(filepath, "/")
 	target_file_directory := strings.Join(target_filename_array[0:len(target_filename_array)-1], "/")
