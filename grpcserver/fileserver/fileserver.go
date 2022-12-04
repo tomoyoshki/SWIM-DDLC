@@ -316,15 +316,22 @@ func (s Server) AskMemberToRemoveModels(ctx context.Context, req *fileproto.Mode
 }
 
 func (s Server) PrintStatus(ctx context.Context, req *fileproto.PrintStatusRequest) (*fileproto.PrintStatusResponse, error) {
-	response := fileproto.PrintStatusResponse{}
 	s.scheduler_in_channel <- utils.MLMessage{
 		Action: int(utils.STATUS),
 		JobID:  int(req.JobId),
 	}
 	out, _ := <-s.scheduler_out_channel
 	buf := &bytes.Buffer{}
-	gob.NewEncoder(buf).Encode(out.JobInfo)
+	utils.PrintJob(out.JobInfo)
+
+	infos := out.JobInfo
+	err := gob.NewEncoder(buf).Encode(infos)
+	if err != nil {
+		log.Println("Erro rencoding: ", err)
+	}
 	bs := buf.Bytes()
-	response.Info = bs
+	response := fileproto.PrintStatusResponse{
+		Info: bs,
+	}
 	return &response, nil
 }

@@ -983,9 +983,11 @@ func InitializeJobStatus(job_id int, model_name string, model_type string, batch
 	}
 	// Handle leftovers (total task per process alaways round down)
 	if job_id == 0 {
-		new_status.TaskLock = &job1_queue_lock
+		// new_status.TaskLock = &job1_queue_lock
+		new_status.AssignLock(&job1_queue_lock)
 	} else {
-		new_status.TaskLock = &job2_queue_lock
+		// new_status.TaskLock = &job2_queue_lock
+		new_status.AssignLock(&job2_queue_lock)
 	}
 
 	new_status.TaskQueues = make([]string, len(all_files))
@@ -1013,7 +1015,7 @@ func RoundRobin(process string) {
 		} else if current_number_of_jobs == 1 {
 			// Just one job.
 			current_job := process_current_job[process]
-			job_status[current_job].TaskLock.Lock()
+			job_status[current_job].Lock()
 			current_job_status := job_status[current_job]
 			batch_size := job_status[current_job].BatchSize
 			current_batch_files := []string{}
@@ -1022,7 +1024,7 @@ func RoundRobin(process string) {
 			log.Printf("On process %v: Job %v, number of job in the queue: %v", process, current_job, len(queue))
 			if len(queue) == 0 {
 				/* No more tasks to do for this job. Done! */
-				job_status[current_job].TaskLock.Unlock()
+				job_status[current_job].Unlock()
 				jobs_lock.Lock()
 				running_jobs = RemoveFromIntList(running_jobs, current_job)
 				jobs_lock.Unlock()
@@ -1039,7 +1041,7 @@ func RoundRobin(process string) {
 			current_job_status.ProcessTestFiles[process] = current_batch_files
 			// Update the global job status.
 			job_status[current_job] = current_job_status
-			job_status[current_job].TaskLock.Unlock()
+			job_status[current_job].Unlock()
 
 			files_replicas := make(map[string][]string)
 			// For each file in the batch, send it through channel.
@@ -1061,7 +1063,7 @@ func RoundRobin(process string) {
 			for {
 				/* Get current job status info */
 				current_job := process_current_job[process]
-				job_status[current_job].TaskLock.Lock()
+				job_status[current_job].Lock()
 				current_job_status := job_status[current_job]
 				batch_size := current_job_status.BatchSize
 				current_batch_files := []string{}
@@ -1069,7 +1071,7 @@ func RoundRobin(process string) {
 				queue := current_job_status.TaskQueues
 				if len(queue) == 0 {
 					/* No more tasks to do for this job. Done! */
-					job_status[current_job].TaskLock.Unlock()
+					job_status[current_job].Unlock()
 					jobs_lock.Lock()
 					running_jobs = RemoveFromIntList(running_jobs, current_job)
 					jobs_lock.Unlock()
@@ -1089,7 +1091,7 @@ func RoundRobin(process string) {
 				// Update the current process' in-progress work.
 				current_job_status.ProcessTestFiles[process] = current_batch_files
 				job_status[current_job] = current_job_status
-				job_status[current_job].TaskLock.Unlock()
+				job_status[current_job].Unlock()
 
 				log.Printf("Current batch files: %v", current_batch_files)
 				// Map of current batch file's metadata

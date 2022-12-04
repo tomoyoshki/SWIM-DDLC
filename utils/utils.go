@@ -110,7 +110,19 @@ type JobStatus struct {
 	ProcessBatchProgress map[string]int      // Maps process to its current batch number in the job (which batch in each N/10)
 	ProcessTestFiles     map[string][]string // Maps process to its assigned test files (of length each_process_total_task)
 	TaskQueues           []string
-	TaskLock             *sync.Mutex
+	tasklock             *sync.Mutex
+}
+
+func (j JobStatus) Lock() {
+	j.tasklock.Lock()
+}
+
+func (j JobStatus) Unlock() {
+	j.tasklock.Unlock()
+}
+
+func (j JobStatus) AssignLock(lock *sync.Mutex) {
+	j.tasklock = lock
 }
 
 func CreateFileDirectory(filepath string) {
@@ -180,7 +192,7 @@ func PrintJob(job JobStatus) {
 	fmt.Println("=\tModel name: ", job.ModelName)
 	fmt.Println("=\tRemaining files: ", len(job.TaskQueues))
 	fmt.Println("=\tVMs assigned to this job")
-	for process, _ := range job.ProcessTestFiles {
+	for process := range job.ProcessTestFiles {
 		fmt.Printf("=\t\t%v\n", process)
 	}
 	fmt.Println(strings.Repeat("=", 80))
