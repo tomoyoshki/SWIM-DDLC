@@ -465,16 +465,28 @@ func handleMLCommand(input string, input_list []string) {
 			log.Println("Invalid job_status command [job_status (0 or 1 or None)]")
 			return
 		}
-		job_id := 0
-		if len(input_list) == 2 {
-			job_id_int, err := strconv.Atoi(input_list[1])
-			if err != nil || (job_id_int != 0 && job_id_int != 1) {
-				log.Println("Invalid job_id (0, 1)")
+		if len(input_list) == 1 {
+			_, err := client_model.ClientRequestJobStatus(MASTER_ADDRESS, 0)
+			if err != nil {
+				log.Println("Received error requesting job status")
 				return
 			}
-			job_id = job_id_int
+
+			_, err = client_model.ClientRequestJobStatus(MASTER_ADDRESS, 1)
+			if err != nil {
+				log.Println("Received error requesting job status")
+				return
+			}
+			return
 		}
-		_, err := client_model.ClientRequestJobStatus(MASTER_ADDRESS, job_id)
+		job_id := 0
+		job_id_int, err := strconv.Atoi(input_list[1])
+		if err != nil || (job_id_int != 0 && job_id_int != 1) {
+			log.Println("Invalid job_id (0, 1)")
+			return
+		}
+		job_id = job_id_int
+		_, err = client_model.ClientRequestJobStatus(MASTER_ADDRESS, job_id)
 		if err != nil {
 			log.Println("Received error requesting job status")
 			return
