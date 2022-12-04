@@ -268,7 +268,7 @@ func (s Server) SendJobInformation(ctx context.Context, req *fileproto.JobInform
 	gob.NewDecoder(bytes.NewReader(req.Replicas)).Decode(&file_replicas)
 
 	var job_status map[int]*utils.JobStatus
-	gob.NewDecoder(bytes.NewReader(req.JobStatus)).Decode(&file_replicas)
+	gob.NewDecoder(bytes.NewReader(req.JobStatus)).Decode(&job_status)
 
 	s.grpc_node_channel <- job_status
 
