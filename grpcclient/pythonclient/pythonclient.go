@@ -21,7 +21,7 @@ func NewPythonClient(conn grpc.ClientConnInterface) PythonClient {
 }
 
 func (c PythonClient) InitializeModel(ctx context.Context, job_id int, batch_size int, model_type string, model_name string) (string, error) {
-	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
+	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(1000*time.Second))
 	defer cancel()
 	log.Printf("Initializing model %v for job %v", model_name, job_id)
 	res, err := c.client.InitializeModel(ctx, &pythonproto.InitializeRequest{
@@ -39,7 +39,7 @@ func (c PythonClient) InitializeModel(ctx context.Context, job_id int, batch_siz
 }
 
 func (c PythonClient) ModelInference(ctx context.Context, job_id int, batch_id int, inference_size int, data_folder string) ([]byte, error) {
-	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(100*time.Second))
+	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(1000*time.Second))
 	defer cancel()
 	res, err := c.client.ModelInference(ctx, &pythonproto.InferenceRequest{
 		JobId:               int32(job_id),
