@@ -815,6 +815,7 @@ func NodeServer() {
 							InitializeMetadata(ProcessFiles)
 							go MasterServer()
 							go IntroduceIntroducer()
+							go SchedulerServer()
 
 						} else if master_index == greatest_index && this_process_index == greatest_index-1 {
 							// If I have the greatest index,
@@ -826,6 +827,7 @@ func NodeServer() {
 							InitializeMetadata(ProcessFiles)
 							go MasterServer()
 							go IntroduceIntroducer()
+							go SchedulerServer()
 						}
 					}
 					log.Printf("Successfully deleted %v", failed_ip)
@@ -1485,6 +1487,7 @@ func Ping(target_id string) {
 				InitializeMetadata(ProcessFiles)
 				go MasterServer()
 				go IntroduceServer()
+				go SchedulerServer()
 
 			} else if master_index == greatest_index && this_process_index == greatest_index-1 {
 				INTRODUCER_IP = this_host
@@ -1495,6 +1498,7 @@ func Ping(target_id string) {
 				InitializeMetadata(ProcessFiles)
 				go MasterServer()
 				go IntroduceServer()
+				go SchedulerServer()
 			}
 		}
 		NotifyFailure(target_id)
