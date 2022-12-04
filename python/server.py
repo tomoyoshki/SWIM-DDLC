@@ -52,7 +52,7 @@ def prepareModel(job_id, batch_size, model_type, model_name="resnet50"):
     global model2_name
     if job_id == 0:
         if model1_initialized == False:
-            logging.info("Model1 is initialized")
+            logging.info(f"model1 named {model_name} is initialized")
             if model_type == "image":
 
                 if model_name == "resnet50":
@@ -61,6 +61,9 @@ def prepareModel(job_id, batch_size, model_type, model_name="resnet50"):
                 elif model_name == "resnet18":
                     model1 = models.resnet18(pretrained=False)
                     model1.load_state_dict(torch.load("./python/resnet18.pth"))
+                else:
+                    model1 = models.resnet50(pretrained=False)
+                    model1.load_state_dict(torch.load("./python/resnet50.pth"))
             elif model_type == "speech":
                 model1 = torch.hub.load('pytorch/fairseq', 'transformer.wmt14.en-fr', tokenizer='moses', bpe='subword_nmt')
             else:
