@@ -1056,6 +1056,20 @@ func RoundRobin(process string) {
 			} else {
 				// An error occurred for this process. Need to put the current batch files back.
 				job_status[current_job].RestoreTasks(process, current_batch_files)
+				membership_mutex.Lock()
+				mem_list, _ := GetMembershipList()
+				membership_mutex.Unlock()
+				mem_list = GetHostsFromID(mem_list)
+				failed := true
+				for _, member := mem_list {
+					if member == process {
+						failed = false
+						break
+					}
+				}
+				if failed {
+					return
+				}
 				continue
 			}
 
@@ -1093,6 +1107,21 @@ func RoundRobin(process string) {
 				} else {
 					// An error occurred for this process. Need to put the current batch files back.
 					job_status[current_job].RestoreTasks(process, current_batch_files)
+					membership_mutex.Lock()
+					mem_list, _ := GetMembershipList()
+					membership_mutex.Unlock()
+					mem_list = GetHostsFromID(mem_list)
+					failed := true
+					for _, member := mem_list {
+						if member == process {
+							failed = false
+							break
+						}
+					}
+					if failed {
+						log.Printf("Process %v failed! Exits round-robin for this process!", process)
+						return
+					}
 					continue
 				}
 				// After finish, update process batch progress
