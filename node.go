@@ -1143,7 +1143,7 @@ func ReInitializeStatus(job_id int) {
 
 
 func RestoreJobStatus(job_id int) {
-	stauts := job_status[job_id]
+	status := job_status[job_id]
 
 	/* Update Workers */
 	membership_mutex.Lock()
@@ -1151,7 +1151,7 @@ func RestoreJobStatus(job_id int) {
 	membership_mutex.Unlock()
 	mem_list = GetHostsFromID(mem_list)
 	status.Workers = mem_list
-	status.N = len(mem_list)
+	status.NumWorkers = len(mem_list)
 
 	// status.TaskQueues
 }
