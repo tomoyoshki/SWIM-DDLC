@@ -155,7 +155,7 @@ class GoPythonServer(GoPythonServicer):
         else:
             logging.info("Invalid model")
 
-        shutil.rmtree(f'./python/data/{request.job_id}')
+        checkfile_validity(f'./python/data/{request.job_id}')
         shutil.rmtree(f'./python/result/{request.job_id}')
 
 

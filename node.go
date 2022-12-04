@@ -38,7 +38,7 @@ var this_ip = GetIP()
 var introduce_server *net.UDPConn
 var node_server *net.UDPConn
 
-var this_host, err = os.Hostname()
+var this_host, _ = os.Hostname()
 var this_id = this_host + "_" + strconv.Itoa(int(time.Now().UnixMilli()))
 var LOCALNAME string
 var ticker *time.Ticker = time.NewTicker(PING_TIME_INTERVAL)
@@ -51,7 +51,7 @@ var user_leave = true
 
 var membership_list []string    // Membership list
 var membership_mutex sync.Mutex // Locks for critical sections
-var server_command = make(chan string)
+// var server_command = make(chan string)
 
 /* Messages for node server's incomming message/request */
 var MasterIncommingChannel = make(chan utils.ChannelInMessage)
@@ -116,8 +116,9 @@ var ScheduleWaitGroup sync.WaitGroup
 var round_robin_running = false
 var running_jobs []int
 var jobs_lock sync.Mutex
-var job1_queue_lock sync.Mutex
-var job2_queue_lock sync.Mutex
+
+// var job1_queue_lock sync.Mutex
+// var job2_queue_lock sync.Mutex
 var process_current_job = make(map[string]int) // Maps process to the job ID it is currently working on
 var job_status = make(map[int]*utils.JobStatus)
 var dir_test_files_map = make(map[string][]string) // Maps a directory to its files
@@ -128,10 +129,10 @@ var dir_test_files_map = make(map[string][]string) // Maps a directory to its fi
 // // Maps a process to a channel that will receive done message.
 // var ProgressChannel = make(map[string](chan string))
 
-type TrainTask struct {
-	model     string
-	test_data []string
-}
+// type TrainTask struct {
+// 	model     string
+// 	test_data []string
+// }
 
 var test_dir = []string{"test_data/images"}
 
@@ -197,7 +198,7 @@ func main() {
 			fmt.Println("Current id: ", this_id)
 			utils.FormatPrint("current_id: " + this_id)
 		} else if input == "join" {
-			if user_leave == false {
+			if !user_leave {
 				continue
 			}
 
@@ -262,6 +263,10 @@ func handleTest(input string, input_list []string) {
 		}
 		ires := make(map[string][]string)
 		err = json.Unmarshal(inference_res, &ires)
+		if err != nil {
+			// log.println("")
+			log.Println(err)
+		}
 		for k, v := range ires {
 			log.Printf("%v: %v", k, v)
 		}
@@ -305,8 +310,6 @@ func handleSDFSCommand(command string, input_list []string) {
 		addresses, new_sdfsfilename, err := client.ClientRequest(MASTER_ADDRESS, localfilename, sdfsfilename, utils.GET)
 		if err != nil {
 			log.Printf("Error Requesting for files: %v", err)
-			if len(addresses) == 0 {
-			}
 			break
 		}
 		for i, fileserver_addr := range addresses {
@@ -386,7 +389,6 @@ func handleMLCommand(input string, input_list []string) {
 	case "load_test_dataset":
 		// Put local dataset tup
 		go load_test_set()
-		break
 	case "start_job":
 		// start_job job_id batch_size model_type
 		if len(input_list) != 4 {
@@ -493,7 +495,7 @@ func handleGetVersions(input_list []string) {
 		return
 	}
 	// Get the highest version of the file
-	highest_version, err := strconv.Atoi(highest_version_str)
+	highest_version, _ := strconv.Atoi(highest_version_str)
 	for i := 0; i < num_version; i += 1 {
 		last_version := highest_version - i
 		// If there are less than the number of versions requested
@@ -961,7 +963,7 @@ func InitializeJobStatus(job_id int, model_name string, model_type string, batch
 	// all_files := dir_test_files_map["targets/1-test_data/images"]
 	// TODO: Chage for images and speech
 	all_files := []string{}
-	for k, _ := range file_metadata {
+	for k := range file_metadata {
 		all_files = append(all_files, k)
 	}
 
@@ -982,14 +984,14 @@ func InitializeJobStatus(job_id int, model_name string, model_type string, batch
 		new_status.ProcessBatchProgress[process] = 0 // progress set to 0.
 	}
 	// Handle leftovers (total task per process alaways round down)
-	if job_id == 0 {
-		// new_status.TaskLock = &job1_queue_lock
-		// log.Println("Job 1 lock: ", &job1_queue_lock)
-		// new_status.AssignLock(&job1_queue_lock)
-	} else {
-		// new_status.TaskLock = &job2_queue_lock
-		// new_status.AssignLock(&job2_queue_lock)
-	}
+	// if job_id == 0 {
+	// 	// new_status.TaskLock = &job1_queue_lock
+	// 	// log.Println("Job 1 lock: ", &job1_queue_lock)
+	// 	// new_status.AssignLock(&job1_queue_lock)
+	// } else {
+	// 	// new_status.TaskLock = &job2_queue_lock
+	// 	// new_status.AssignLock(&job2_queue_lock)
+	// }
 
 	new_status.TaskQueues = make([]string, len(all_files))
 	copy(new_status.TaskQueues, all_files)
@@ -1415,10 +1417,7 @@ func Ping(target_id string) {
 		if this_host == INTRODUCER_IP {
 			MasterFailChannel <- target_id
 		}
-	} else {
-		// do nothing
 	}
-
 }
 
 // Create a FAILURE package and Dissmeniate the packet to neighbor

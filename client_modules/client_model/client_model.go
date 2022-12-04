@@ -97,7 +97,7 @@ func AskMemberToInitializeModels(addr string, job_id int, batch_size int, model_
 	return "OK", nil
 }
 
-func SendJobStatusReplication(addr string, job_status utils.JobStatus) (string, error) {
+func SendJobStatusReplication(addr string, job_status map[int]*utils.JobStatus) (string, error) {
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Printf("SendInferenceInformation() did not connect: %v", err)
@@ -139,6 +139,9 @@ func AskToInference(addr string, job_id int, batch_id int, inference_size int, d
 	defer conn.Close()
 	client := pythonclient.NewPythonClient(conn)
 	res_status, err := client.ModelInference(context.Background(), job_id, batch_id, inference_size, data_folder)
+	if err != nil {
+		log.Println("Failed to ask to inference")
+	}
 	return res_status, nil
 }
 
@@ -152,6 +155,9 @@ func AskMemberToRemoveModels(addr string, job_id int) (string, error) {
 	defer conn.Close()
 	client := fileclient.NewClient(conn, nil)
 	res, err := client.AskMemberToRemoveModels(context.Background(), job_id)
+	if err != nil {
+		log.Println("Failed to ask member to remove models")
+	}
 	return res, nil
 }
 
@@ -165,6 +171,9 @@ func AskToRemoveModels(addr string, job_id int) (string, error) {
 	defer conn.Close()
 	client := pythonclient.NewPythonClient(conn)
 	res, err := client.RemoveModel(context.Background(), job_id)
+	if err != nil {
+		log.Println("Failed to Ask Python to remove model")
+	}
 	return res, nil
 }
 
@@ -178,5 +187,8 @@ func ClientRequestJobStatus(addr string, job_id int) (string, error) {
 	defer conn.Close()
 	client := fileclient.NewClient(conn, nil)
 	res, err := client.RequestJobStatus(context.Background(), job_id)
+	if err != nil {
+		log.Println("Failed to request job status")
+	}
 	return res, nil
 }
