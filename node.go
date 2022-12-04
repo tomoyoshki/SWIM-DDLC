@@ -1149,6 +1149,7 @@ func RoundRobin(process string) {
 				// After finish, update process batch progress
 				job_status[current_job].ProcessBatchProgress[process] = current_batch + 1
 				// Move on to the next job.
+				// loop through jobs and calculate
 				next_job := (current_job + 1) % 2 // 0 ->1 or 1 -> 0
 				process_current_job[process] = next_job
 				log.Printf("Process %v's job %v's batch number %v is done! Moving on to the next round robin.", process, current_job, current_batch)
