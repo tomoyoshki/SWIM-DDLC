@@ -1375,7 +1375,7 @@ func MasterServer() {
 						/* Remove the failed process from file's replica.*/
 						new_replicas.Replicas = RemoveFromList(replicas, failed_process)
 						file_metadata[file] = new_replicas
-						break
+						continue
 					}
 					/* Find all non-replcia of this file's processes */
 					for _, replica := range replicas {
