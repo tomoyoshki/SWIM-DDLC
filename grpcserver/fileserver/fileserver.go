@@ -203,6 +203,7 @@ func (s Server) StartJob(ctx context.Context, req *fileproto.JobRequest) (*filep
 		Action:    int(utils.TRAIN),
 		JobID:     int(req.JobId),
 		ModelType: req.ModelType,
+		ModelName: req.ModelName,
 		BatchSize: int(req.BatchSize),
 	}
 
@@ -293,7 +294,7 @@ func (s Server) AskMemberToInitializeModels(ctx context.Context, req *fileproto.
 	response := fileproto.ModelTrainResponse{
 		Status: "OK",
 	}
-	_, err := client_model.AskToInitializeModel("localhost:9999", int(req.JobId), int(req.BatchSize), req.ModelType)
+	_, err := client_model.AskToInitializeModel("localhost:9999", int(req.JobId), int(req.BatchSize), req.ModelType, req.ModelName)
 	if err != nil {
 		log.Println("AskMemberToInitializeModels failed to call AskToInitializeModel()")
 		response.Status = "Error"
