@@ -1139,6 +1139,30 @@ func ReInitializeStatus(job_id int) {
 
 // This thread acts as the scheduler that allocates resources
 func SchedulerServer() {
+	// If this is a newly elected leader after the previous one crashed, check existing jobs.
+	for job_id, status := range job_status {
+		if status.QueryCount < len(status.TaskQueues) {
+			// There are remaining tasks for this job to finish.
+			log.Printf("Job %v continues referencing!", job_id)
+			// Restarts running
+			if round_robin_running {
+				running_jobs = append(running_jobs, job_id) // 2nd job
+			} else {
+				running_jobs = append(running_jobs, job_id) // 1st job
+				round_robin_running = true
+				log.Printf("The running job is running_jobs %v", running_jobs)
+				members_host := GetHostsFromID(membership_list) // Get rid of timestamp
+				for _, process := range members_host {
+					// Set the first job to be this jobID for all processes.
+					process_current_job[process] = job_id
+					log.Printf("Scheduler asks process %v to perform round-robin!", process)
+					// Allocate the test files for each process concurrently.
+					go RoundRobin(process)
+				}
+			}
+		}
+	}
+
 	for {
 		select {
 		case new_job := <-SchedulerInChannel:
