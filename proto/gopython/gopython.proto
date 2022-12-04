@@ -18,6 +18,7 @@ message InitializeRequest {
     int32 batch_size = 1;
     string model_type = 2;
     int32 job_id = 3;
+    string model_name = 4;
 }
 
 message InitializeResponse {

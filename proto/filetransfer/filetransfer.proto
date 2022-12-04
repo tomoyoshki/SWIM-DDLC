@@ -122,6 +122,7 @@ message ModelTrainRequest {
     int32 job_id = 1;
     int32 batch_size = 2;
     string model_type = 3;
+    string model_name = 4;
 }
 
 message ModelTrainResponse {

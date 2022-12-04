@@ -179,6 +179,7 @@ func (c Client) StartJob(ctx context.Context, job_id int, batch_size int, model_
 		JobId:     int32(job_id),
 		BatchSize: int32(batch_size),
 		ModelType: model_type,
+		ModelName: model_name,
 	})
 	if err != nil {
 		log.Printf("Startjob() error: %v", err)
@@ -241,13 +242,14 @@ func (c Client) SendJobInformation(ctx context.Context, batch_id int, job_id int
 	return ires, nil
 }
 
-func (c Client) AskMemberToInitializeModels(ctx context.Context, job_id int, batch_size int, model_type string) (string, error) {
+func (c Client) AskMemberToInitializeModels(ctx context.Context, job_id int, batch_size int, model_type string, model_name string) (string, error) {
 	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
 	defer cancel()
 	res, err := c.client.AskMemberToInitializeModels(ctx, &fileproto.ModelTrainRequest{
 		JobId:     int32(job_id),
 		BatchSize: int32(batch_size),
 		ModelType: model_type,
+		ModelName: model_name,
 	})
 
 	if err != nil {

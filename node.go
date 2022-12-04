@@ -390,9 +390,9 @@ func handleMLCommand(input string, input_list []string) {
 		// Put local dataset tup
 		go load_test_set()
 	case "start_job":
-		// start_job job_id batch_size model_type
-		if len(input_list) != 4 {
-			log.Println("Invalid start_job command [start_job model_type job_id (0 or 1) batch_size]")
+		// start_job job_id batch_size model_type model_name
+		if len(input_list) != 5 {
+			log.Println("Invalid start_job command [start_job model_type job_id (0 or 1) batch_size model_name]")
 			return
 		}
 
@@ -415,6 +415,12 @@ func handleMLCommand(input string, input_list []string) {
 			log.Println("Invalid model_type (image or speech)")
 			return
 		}
+
+		model_name := input_list[4]
+		if model_name != "resnet50" && model_name != "resnet18" {
+			log.Println("Invalid model name (resnet50 or resnet 18)")
+		}
+
 		_, err = client_model.ClientStartJob(MASTER_ADDRESS, job_id_int, batch_size_int, model_type)
 		if err != nil {
 			log.Println("Received error starting job from server")
