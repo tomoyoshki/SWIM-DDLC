@@ -230,7 +230,7 @@ func PrintJob(job *JobStatus) {
 	fmt.Println("=\tJob Id: ", job.JobId)
 	fmt.Println("=\tCurrent Batch size: ", job.BatchSize)
 	query_rate := job.QueryCount / int(time.Now().Sub(job.StartTime))
-	fmt.Println("=\tQuery rate: ", query_rate)
+	fmt.Printf("=\tQuery rate: %v/s\n", query_rate)
 	fmt.Println("=\tQuery count: ", job.QueryCount)
 	fmt.Println("=\tModel type: ", job.ModelType)
 	fmt.Println("=\tModel name: ", job.ModelName)
