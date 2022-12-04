@@ -198,6 +198,9 @@ class GoPythonServer(GoPythonServicer):
         inference_data_folder = request.inference_data_folder
         result = processData(job_id, batch_id, inference_data_folder)
 
+        if result is None:
+            raise Exception("processData did not return any inference result")
+
         logging.info(f"Batchid: {batch_id}")
         result_directory = f"./python/result/{job_id}/{batch_id}/"
 
