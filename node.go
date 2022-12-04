@@ -1054,7 +1054,9 @@ func RoundRobin(process string) {
 			log.Printf("Sending batch of size %v to process %v", len(files_replicas), process)
 			result := client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas)
 			if result != nil {
-				// Store the result
+				// The inference was successfully completed and stored.
+				job_status[current_job].UpdateCount(len(current_batch_files))
+				// job_status[current_job].QueryCount += len(current_batch_files)
 			} else {
 				// An error occurred for this process. Need to put the current batch files back.
 				job_status[current_job].RestoreTasks(process, current_batch_files)
@@ -1109,7 +1111,8 @@ func RoundRobin(process string) {
 				result := client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas)
 
 				if result != nil {
-					// Store the result
+					// The inference was successfully completed and stored.
+					job_status[current_job].UpdateCount(len(current_batch_files))
 				} else {
 					// An error occurred for this process. Need to put the current batch files back.
 					job_status[current_job].RestoreTasks(process, current_batch_files)

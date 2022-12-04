@@ -114,6 +114,7 @@ type JobStatus struct {
 	TaskQueues           []string
 	Workers              []string // List of existing worker processes
 	tasklock             sync.Mutex
+	countlock            sync.Mutex
 }
 
 func (j *JobStatus) AssignWorks(process string) ([]string, int, int) {
@@ -142,6 +143,12 @@ func (j *JobStatus) AssignWorks(process string) ([]string, int, int) {
 
 	current_batch := j.ProcessBatchProgress[process]
 	return current_batch_files, current_batch, 1
+}
+
+func (j *JobStatus) UpdateCount(size int) {
+	j.countlock.Lock()
+	j.QueryCount += size
+	j.countlock.Unlock()
 }
 
 // Completes the work done.
