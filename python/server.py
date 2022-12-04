@@ -52,7 +52,7 @@ def prepareModel(job_id, batch_size, model_type, model_name="resnet50"):
     global model2_name
     if job_id == 0:
         if model1_initialized == False:
-            logging.info("Model1 is initialized")
+            logging.info(f"model1 named {model_name} is initialized")
             if model_type == "image":
 
                 if model_name == "resnet50":
@@ -61,6 +61,9 @@ def prepareModel(job_id, batch_size, model_type, model_name="resnet50"):
                 elif model_name == "resnet18":
                     model1 = models.resnet18(pretrained=False)
                     model1.load_state_dict(torch.load("./python/resnet18.pth"))
+                else:
+                    model1 = models.resnet50(pretrained=False)
+                    model1.load_state_dict(torch.load("./python/resnet50.pth"))
             elif model_type == "speech":
                 model1 = torch.hub.load('pytorch/fairseq', 'transformer.wmt14.en-fr', tokenizer='moses', bpe='subword_nmt')
             else:
@@ -74,14 +77,17 @@ def prepareModel(job_id, batch_size, model_type, model_name="resnet50"):
             return -2
     elif job_id == 1:
         if model2_initialized == False:
-            logging.info("Model2 is initialized")
+            logging.info(f"Model2 named {model_name} is initialized")
             if model_type == "image":
                 if model_name == "resnet50":
-                    model1 = models.resnet50(pretrained=False)
-                    model1.load_state_dict(torch.load("./python/resnet50.pth"))
+                    model2 = models.resnet50(pretrained=False)
+                    model2.load_state_dict(torch.load("./python/resnet50.pth"))
                 elif model_name == "resnet18":
-                    model1 = models.resnet18(pretrained=False)
-                    model1.load_state_dict(torch.load("./python/resnet18.pth"))
+                    model2 = models.resnet18(pretrained=False)
+                    model2.load_state_dict(torch.load("./python/resnet18.pth"))
+                else:
+                    model2 = models.resnet50(pretrained=False)
+                    model2.load_state_dict(torch.load("./python/resnet50.pth"))
             elif model_type == "speech":
                 model2 = torch.hub.load('pytorch/fairseq', 'transformer.wmt14.en-fr', tokenizer='moses', bpe='subword_nmt')
             else:
@@ -137,7 +143,7 @@ class GoPythonServer(GoPythonServicer):
         logging.info("Master requesting to intialize model")
         resp = InitializeResponse(status="OK")
         model_type = request.model_type
-        res = prepareModel(request.job_id, request.batch_size, model_type, req.model_name)
+        res = prepareModel(request.job_id, request.batch_size, model_type, request.model_name)
         if res == -1:
             resp.status = "Error"
         elif res == -2:
@@ -190,7 +196,9 @@ class GoPythonServer(GoPythonServicer):
 
         result_directory = f"./python/result/{job_id}/{batch_id}/"
 
-        checkfile_validity(result_directory, True)
+        # checkfile_validity(result_directory, True)
+        if not os.path.exists(result_directory):
+            os.makedirs(result_directory)
 
         with open(result_directory + "result.txt", "w") as f:
             for input_filename in result:

@@ -114,7 +114,7 @@ func SendJobStatusReplication(addr string, job_status map[int]*utils.JobStatus) 
 }
 
 // Go Member ask Python Server to initialize model
-func AskToInitializeModel(addr string, job_id int, batch_size int, model_type string) (string, error) {
+func AskToInitializeModel(addr string, job_id int, batch_size int, model_type string, model_name string) (string, error) {
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Printf("ClientAskToReplicate() did not connect: %v", err)
@@ -122,7 +122,7 @@ func AskToInitializeModel(addr string, job_id int, batch_size int, model_type st
 	}
 	defer conn.Close()
 	client := pythonclient.NewPythonClient(conn)
-	res_status, err := client.InitializeModel(context.Background(), job_id, batch_size, model_type)
+	res_status, err := client.InitializeModel(context.Background(), job_id, batch_size, model_type, model_name)
 	if res_status != "OK" {
 		log.Print("Failed to initialize model")
 	}
