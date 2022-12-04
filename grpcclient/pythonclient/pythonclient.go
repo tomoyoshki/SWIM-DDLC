@@ -23,6 +23,7 @@ func NewPythonClient(conn grpc.ClientConnInterface) PythonClient {
 func (c PythonClient) InitializeModel(ctx context.Context, job_id int, batch_size int, model_type string, model_name string) (string, error) {
 	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
 	defer cancel()
+	log.Printf("Initializing model %v for job %v", model_name, job_id)
 	res, err := c.client.InitializeModel(ctx, &pythonproto.InitializeRequest{
 		JobId:     int32(job_id),
 		BatchSize: int32(batch_size),

@@ -263,7 +263,8 @@ func (s Server) SendJobInformation(ctx context.Context, req *fileproto.JobInform
 		Status: "OK",
 	}
 
-	// log.Println("Received SendJobInformation()")
+	log.Printf("Received inference information for job: %v on batch %v", req.JobId, req.BatchId)
+
 	file_prefix := fmt.Sprintf("python/data/%d/%d/", req.JobId, req.BatchId)
 	var file_replicas map[string][]string
 	gob.NewDecoder(bytes.NewReader(req.Replicas)).Decode(&file_replicas)

@@ -50,6 +50,10 @@ def prepareModel(job_id, batch_size, model_type, model_name="resnet50"):
     global model2_initialized
     global model1_name
     global model2_name
+
+    logging.info(f"Preparing model {model_name} with type {model_type} for job {job_id} ")
+    logging.info(f"Model 1 initialized: {model1_initialized}")
+    logging.info(f"Model 2 initialized: {model2_initialized}")
     if job_id == 0:
         if model1_initialized == False:
             logging.info(f"model1 named {model_name} is initialized")
@@ -194,6 +198,7 @@ class GoPythonServer(GoPythonServicer):
         inference_data_folder = request.inference_data_folder
         result = processData(job_id, batch_id, inference_data_folder)
 
+        logging.info(f"Batchid: {batch_id}")
         result_directory = f"./python/result/{job_id}/{batch_id}/"
 
         # checkfile_validity(result_directory, True)
