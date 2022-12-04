@@ -72,7 +72,7 @@ func SendInferenceInformation(addr string, job_id int, batch_id int, file_replic
 	}
 	defer conn.Close()
 	client := fileclient.NewClient(conn, nil)
-	res_status, err := client.SendJobInformation(context.Background(), batch_id, job_id, file_replicas)
+	res_status, err := client.SendJobInformation(context.Background(), batch_id, job_id, file_replicas, job_status)
 	if err != nil {
 		log.Printf("SendInferenceInformation() failed")
 		return nil
