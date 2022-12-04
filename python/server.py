@@ -196,7 +196,9 @@ class GoPythonServer(GoPythonServicer):
 
         result_directory = f"./python/result/{job_id}/{batch_id}/"
 
-        checkfile_validity(result_directory, True)
+        # checkfile_validity(result_directory, True)
+        if not os.path.exists(result_directory):
+            os.makedirs(result_directory)
 
         with open(result_directory + "result.txt", "w") as f:
             for input_filename in result:
