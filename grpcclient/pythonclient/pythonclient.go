@@ -43,6 +43,7 @@ func (c PythonClient) ModelInference(ctx context.Context, job_id int, batch_id i
 	defer cancel()
 	res, err := c.client.ModelInference(ctx, &pythonproto.InferenceRequest{
 		JobId:               int32(job_id),
+		BatchId:             int32(batch_id),
 		InferenceSize:       int32(inference_size),
 		InferenceDataFolder: data_folder,
 	})

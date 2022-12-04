@@ -300,6 +300,10 @@ func (c Client) RequestJobStatus(ctx context.Context, job_id int) (string, error
 		log.Println("RequestJobStatus() failed ", err)
 		return "PrintStatus returned error", err
 	}
+
+	if len(res.Info) == 0 {
+		return "OK", nil
+	}
 	var results *utils.JobStatus
 	gob.NewDecoder(bytes.NewReader(res.Info)).Decode(&results)
 	utils.PrintJob(results)

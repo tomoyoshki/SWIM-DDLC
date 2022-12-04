@@ -1192,9 +1192,16 @@ func SchedulerServer() {
 					Action:         utils.REMOVE,
 					MembershipList: mem_list}
 			} else if new_job.Action == utils.STATUS {
-				SchedulerOutChannel <- utils.MLMessage{
-					Action:  utils.STATUS,
-					JobInfo: job_status[new_job.JobID],
+				if _, ok := job_status[new_job.JobID]; ok {
+					//do something here
+					SchedulerOutChannel <- utils.MLMessage{
+						Action:  utils.STATUS,
+						JobInfo: job_status[new_job.JobID],
+					}
+				} else {
+					SchedulerOutChannel <- utils.MLMessage{
+						Action: utils.FAILED,
+					}
 				}
 			}
 		}

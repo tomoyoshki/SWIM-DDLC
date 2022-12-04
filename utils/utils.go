@@ -35,6 +35,7 @@ const (
 	INFERENCE   = 8
 	REMOVE      = 9
 	STATUS      = 10
+	FAILED      = 11
 )
 
 func SetupPythonServer() {
@@ -219,6 +220,7 @@ func PrintJob(job *JobStatus) {
 	fmt.Println("=\tJob Id: ", job.JobId)
 	fmt.Println("=\tCurrent Batch size: ", job.BatchSize)
 	fmt.Println("=\tQuery rate: ", job.QueryRate)
+	fmt.Println("=\tQuery count: ", job.QueryCount)
 	fmt.Println("=\tModel type: ", job.ModelType)
 	fmt.Println("=\tModel name: ", job.ModelName)
 	fmt.Println("=\tRemaining files: ", len(job.TaskQueues))

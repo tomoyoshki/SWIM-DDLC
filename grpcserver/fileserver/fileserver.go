@@ -323,6 +323,12 @@ func (s Server) PrintStatus(ctx context.Context, req *fileproto.PrintStatusReque
 		JobID:  int(req.JobId),
 	}
 	out, _ := <-s.scheduler_out_channel
+
+	if out.Action == utils.FAILED {
+		return &fileproto.PrintStatusResponse{
+			Info: []byte{},
+		}, nil
+	}
 	buf := &bytes.Buffer{}
 
 	infos := out.JobInfo
