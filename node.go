@@ -376,7 +376,7 @@ func handleMLCommand(input string, input_list []string) {
 		}
 
 		model_name := input_list[4]
-		if model_name != "resnet50" && model_name != "resnet18" {
+		if model_name != "resnet50" && model_name != "resnet18" && model_name != "iv3" {
 			log.Println("Invalid model name (resnet50 or resnet 18)")
 		}
 
@@ -1530,20 +1530,34 @@ func Ping(target_id string) {
 	// generate target_ip
 	target_ip := ExtractIPFromID(target_id)
 	target_address, err := net.ResolveUDPAddr("udp", target_ip+":"+strconv.Itoa(PORT_NUMBER))
-	utils.LogError(err, "Unable to resolve target address in Ping()", false)
+	if err != nil {
+		log.Println("Unable to resolve target address in Ping()")
+		return
+	}
 
 	// create Ping Message
 	ping_request_packet := Packet{this_id, utils.PING, []string{}}
 	ping_request, err := ConvertToSend(ping_request_packet)
-	utils.LogError(err, "Unable to convert ping request packet to bytes in NodeClient()", false)
+	if err != nil {
+		log.Println("Unable to convert ping request packet to bytes in NodeClient()")
+		return
+	}
 
 	// Connection fails
 	connection, err := net.DialUDP("udp", nil, target_address)
 	utils.LogError(err, "Unable to establish connection with target in Ping()", false)
+	if err != nil {
+		log.Println("Unable to establish connection with target in Ping()")
+		return
+	}
 
 	// Send Ping to the target_id
 	_, err = connection.Write(ping_request)
 	utils.LogError(err, "Unable to write to neighbor with target in Ping()", false)
+	if err != nil {
+		log.Println("Unable to write to neighbor with target in Ping()")
+		return
+	}
 
 	// Set time out
 	connection.SetDeadline(time.Now().Add(PING_TIMEOUT))
@@ -1626,9 +1640,15 @@ func DisseminatePacket(udp_message []byte) {
 				suc_ip_addr_2 := ExtractIPFromID(membership_list[utils.Mod(i+2, len(membership_list))])
 				for _, neighbor := range []string{pred_ip_addr_1, suc_ip_addr_1, suc_ip_addr_2} {
 					neighbor_udp_addr, err := net.ResolveUDPAddr("udp", neighbor+":"+strconv.Itoa(PORT_NUMBER))
-					utils.LogError(err, "Unable to resolve Introducer's Neighbor UDP Addr: ", false)
+					if err != nil {
+						log.Println("Unable to resolve Introducer's Neighbor UDP Addr: ")
+						continue
+					}
 					udp_connection, err := net.DialUDP("udp", nil, neighbor_udp_addr)
-					utils.LogError(err, "Unable to establish connection with target in DisseminatePacket()", false)
+					if err != nil {
+						log.Println("Unable to Dial's Neighbor UDP Addr: ")
+						continue
+					}
 					_, _ = udp_connection.Write(udp_message)
 					// Close the connection since we do not care the result
 					udp_connection.Close()
@@ -1643,9 +1663,16 @@ func DisseminatePacket(udp_message []byte) {
 			}
 			neighbor_ip_addr := ExtractIPFromID(member_id)
 			neighbor_udp_addr, err := net.ResolveUDPAddr("udp", neighbor_ip_addr+":"+strconv.Itoa(PORT_NUMBER))
-			utils.LogError(err, "Unable to resolve Introducer's Neighbor UDP Addr: ", false)
+			if err != nil {
+				log.Println("Unable to resolve Introducer's Neighbor UDP Addr: ")
+				continue
+			}
 			udp_connection, err := net.DialUDP("udp", nil, neighbor_udp_addr)
-			utils.LogError(err, "Unable to establish connection with target in DisseminatePacket()", false)
+
+			if err != nil {
+				log.Println("Unable to establish connection with target in DisseminatePacket()")
+				continue
+			}
 			_, _ = udp_connection.Write(udp_message)
 			udp_connection.Close()
 		}
