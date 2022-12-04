@@ -293,7 +293,7 @@ func (s Server) SendJobInformation(ctx context.Context, req *fileproto.JobInform
 	result_file_dir := fmt.Sprintf("./python/result/%v/%v/result.txt", req.JobId, req.BatchId)
 	host_addr := fmt.Sprintf("%v:3333", req.SenderAddr)
 	this_host, _ := os.Hostname()
-	sdfsfilename := fmt.Sprintf("inference_result/%v/%v/%v/result.txt", this_host, req.JobId, req.BatchId)
+	sdfsfilename := fmt.Sprintf("inference_result/%v/%v/%v/result.txt", req.JobId, this_host, req.BatchId)
 	go client.ClientUpload(host_addr, result_file_dir, sdfsfilename)
 	log.Printf("Inference for Job %v with Batch %d is done", req.JobId, req.BatchId)
 	response.InferenceResult = res

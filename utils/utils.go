@@ -25,18 +25,20 @@ const (
 )
 
 const (
-	PUT         = 0
-	GET         = 1
-	DELETE      = 2
-	LS          = 3
-	STORE       = 4
-	NUM_VERSION = 5
-	ALLOCATE    = 6
-	TRAIN       = 7
-	INFERENCE   = 8
-	REMOVE      = 9
-	STATUS      = 10
-	FAILED      = 11
+	PUT                = 0
+	GET                = 1
+	DELETE             = 2
+	LS                 = 3
+	STORE              = 4
+	NUM_VERSION        = 5
+	ALLOCATE           = 6
+	TRAIN              = 7
+	INFERENCE          = 8
+	REMOVE             = 9
+	STATUS             = 10
+	FAILED             = 11
+	INFERENCE_RESULT_0 = 12
+	INFERENCE_RESULT_1 = 13
 )
 
 func SetupPythonServer() {

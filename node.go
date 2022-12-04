@@ -449,9 +449,29 @@ func handleMLCommand(input string, input_list []string) {
 			log.Println("Received error requesting job status")
 			return
 		}
-	case "inference_result" {
-		
-	}
+	case "inference_result":
+		// inference_result job_id
+		if len(input_list) != 2 {
+			log.Println("Invalid job_status command [job_status (0 or 1 or None)]")
+			return
+		}
+		job_id_int, err := strconv.Atoi(input_list[1])
+		if err != nil || (job_id_int != 0 && job_id_int != 1) {
+			log.Println("Invalid job_id (0, 1)")
+			return
+		}
+
+		inference_file_name, _, err := client.ClientRequest("", "", "", utils.INFERENCE_RESULT_0)
+		if err != nil {
+			log.Printf("Error Requesting for inferenece result files: %v", err)
+			break
+		}
+
+		result_dir := fmt.Sprintf("results/")
+		for i, filename := range inference_file_name {
+			local_filename := fmt.Sprintf("%v%v-result.txt", result_dir, i)
+			client.ClientDownload(MASTER_ADDRESS, local_filename, filename)
+		}
 	default:
 		utils.FormatPrint(fmt.Sprintf("Invalid command [%v]", input_list))
 	}
@@ -1352,6 +1372,32 @@ func MasterServer() {
 						Replicas: []string{""},
 						Version:  -1}
 				}
+			} else if client_order.Action == utils.INFERENCE_RESULT_0 {
+				filenames := []string{}
+				for filename := range file_metadata {
+					if strings.HasPrefix(filename, "inference_result/0/") {
+						filenames = append(filenames, filename)
+					}
+					replicas := filenames
+					MasterOutgoingChannel <- utils.ChannelOutMessage{
+						Action:   utils.INFERENCE_RESULT_0,
+						Replicas: replicas,
+						Version:  -1}
+				}
+
+			} else if client_order.Action == utils.INFERENCE_RESULT_1 {
+				filenames := []string{}
+				for filename := range file_metadata {
+					if strings.HasPrefix(filename, "inference_result/1/") {
+						filenames = append(filenames, filename)
+					}
+					replicas := filenames
+					MasterOutgoingChannel <- utils.ChannelOutMessage{
+						Action:   utils.INFERENCE_RESULT_1,
+						Replicas: replicas,
+						Version:  -1}
+				}
+
 			}
 			// MasterFailChannel is filled after the failed_process is deleted
 		case failed_process := <-MasterFailChannel:
