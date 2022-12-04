@@ -1085,7 +1085,7 @@ func RoundRobin(process string) {
 					job_status[current_job].RestoreTasks(process, current_batch_files)
 					membership_mutex.Lock()
 					mem_list, _ := GetMembershipList()
-					membership_mutex.Unlock()
+					// membership_mutex.Unlock()
 					mem_list = GetHostsFromID(mem_list)
 					failed := true
 					for _, member := range mem_list {
@@ -1095,12 +1095,16 @@ func RoundRobin(process string) {
 						}
 					}
 					if failed {
-						/* Update job status for this job */
-						job_status[current_job].Workers = mem_list
-						job_status[current_job].NumWorkers = len(mem_list)
+						/* Update job status for all the jobs. */
+						for _, status := range job_status {
+							status.Workers = mem_list
+							status.NumWorkers = len(mem_list)
+						}
+						membership_mutex.Unlock()
 						log.Printf("Process %v failed! Exits round-robin for this process!", process)
 						return
 					}
+					membership_mutex.Unlock()
 					continue
 				}
 				// After finish, update process batch progress
