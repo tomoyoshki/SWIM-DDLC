@@ -23,10 +23,12 @@ server = None
 model1 = None
 model1_initialized = False
 model1_batch_size = 1
+model1_name = ""
 
 model2 = None
 model2_initialized = False
 model2_batch_size = 1
+model2_name = ""
 
 image_utils = None
 
@@ -41,17 +43,24 @@ def SigINTHandler(signum, frame):
         logging.info("Received control-c, now stopping model")
         server.stop(None)
 
-def prepareModel(job_id, batch_size, model_type):
+def prepareModel(job_id, batch_size, model_type, model_name="resnet50"):
     global model1
     global model2
     global model1_initialized
     global model2_initialized
+    global model1_name
+    global model2_name
     if job_id == 0:
         if model1_initialized == False:
             logging.info("Model1 is initialized")
             if model_type == "image":
-                model1 = models.resnet50(pretrained=False)
-                model1.load_state_dict(torch.load("./python/resnet50.pth"))
+
+                if model_name == "resnet50":
+                    model1 = models.resnet50(pretrained=False)
+                    model1.load_state_dict(torch.load("./python/resnet50.pth"))
+                elif model_name == "resnet18":
+                    model1 = models.resnet18(pretrained=False)
+                    model1.load_state_dict(torch.load("./python/resnet18.pth"))
             elif model_type == "speech":
                 model1 = torch.hub.load('pytorch/fairseq', 'transformer.wmt14.en-fr', tokenizer='moses', bpe='subword_nmt')
             else:
@@ -59,6 +68,7 @@ def prepareModel(job_id, batch_size, model_type):
                 return -1
             model1.eval()
             model1_initialized = True
+            model1_name = model_name
         else:
             logging.info("Model1 is currently occupied")
             return -2
@@ -66,8 +76,12 @@ def prepareModel(job_id, batch_size, model_type):
         if model2_initialized == False:
             logging.info("Model2 is initialized")
             if model_type == "image":
-                model2 = models.resnet50(pretrained=False)
-                model2.load_state_dict(torch.load("./python/resnet50.pth"))
+                if model_name == "resnet50":
+                    model1 = models.resnet50(pretrained=False)
+                    model1.load_state_dict(torch.load("./python/resnet50.pth"))
+                elif model_name == "resnet18":
+                    model1 = models.resnet18(pretrained=False)
+                    model1.load_state_dict(torch.load("./python/resnet18.pth"))
             elif model_type == "speech":
                 model2 = torch.hub.load('pytorch/fairseq', 'transformer.wmt14.en-fr', tokenizer='moses', bpe='subword_nmt')
             else:
@@ -75,6 +89,7 @@ def prepareModel(job_id, batch_size, model_type):
                 return -1
             model2.eval()
             model2_initialized = True
+            model2_name = model_name
         else:
             logging.info("Model2 is currently occupied")
             return -2
@@ -122,7 +137,7 @@ class GoPythonServer(GoPythonServicer):
         logging.info("Master requesting to intialize model")
         resp = InitializeResponse(status="OK")
         model_type = request.model_type
-        res = prepareModel(request.job_id, request.batch_size, model_type)
+        res = prepareModel(request.job_id, request.batch_size, model_type, req.model_name)
         if res == -1:
             resp.status = "Error"
         elif res == -2:
@@ -137,21 +152,26 @@ class GoPythonServer(GoPythonServicer):
             global model1_initialized
             global model1_batch_size
             global job1_done
+            global model1_name
 
             del model1
             model1_initialized = False
             model1_batch_size = False
             job1_done = True
+            model1_name = False
+
         elif request.job_id == 1:
             global model2
             global model2_initialized
             global model2_batch_size
             global job2_done
+            global model2_name
 
             del model2
             model2_initialized = False
             model2_batch_size = False
             job2_done = True
+            model2_name = False
         else:
             logging.info("Invalid model")
 
