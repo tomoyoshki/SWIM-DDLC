@@ -121,7 +121,8 @@ var jobs_lock sync.Mutex
 // var job2_queue_lock sync.Mutex
 var process_current_job = make(map[string]int) // Maps process to the job ID it is currently working on
 var job_status = make(map[int]*utils.JobStatus)
-var dir_test_files_map = make(map[string][]string) // Maps a directory to its files
+
+// var dir_test_files_map = make(map[string][]string) // Maps a directory to its files
 
 // // Maps a process to its corresponding channel (for tracking each progress)
 // var ProcessScheduleMap = make(map[string](chan utils.ChannelOutMessage))
@@ -141,12 +142,12 @@ func load_test_set() {
 	utils.FormatPrint("Loading test dataset")
 	count := 0
 	for _, directory := range test_dir {
-		all_files := []string{}
+		// all_files := []string{}
 		// Loop through each test file under current dir:
 		files, _ := ioutil.ReadDir(directory)
 		for _, file := range files {
 			localfilename := directory + "/" + file.Name()
-			all_files = append(all_files, localfilename)
+			// all_files = append(all_files, localfilename)
 			// log.Print("\n\nClient started requesting put")
 			sdfsfilename := localfilename
 			addresses, new_sdfsfilename, err := client.ClientRequest(MASTER_ADDRESS, localfilename, sdfsfilename, utils.PUT)
@@ -160,7 +161,7 @@ func load_test_set() {
 			}
 			count += 1
 		}
-		dir_test_files_map[directory] = all_files
+		// dir_test_files_map[directory] = all_files
 	}
 	utils.FormatPrint(fmt.Sprintf("Finished loading test dataset\n=\t Loaded %v data in total", count))
 }
@@ -948,7 +949,6 @@ func NewIntroducer() {
 	}
 }
 
-// TODO: Before allocation happens, must initialize the job status map!
 func InitializeJobStatus(job_id int, model_name string, model_type string, batch_size int) {
 	// Initializes the num_workers, batch_size, etc
 	// Calculates the total task for each process,
@@ -956,23 +956,26 @@ func InitializeJobStatus(job_id int, model_name string, model_type string, batch
 
 	// If the job exists, delete it and re-initialize it
 	if _, ok := job_status[job_id]; ok {
-		delete(job_status, job_id)
+		// delete(job_status, job_id)
+		return
 	}
 
 	// Gets all the test files under dir.
 	// all_files := dir_test_files_map["targets/1-test_data/images"]
-	// TODO: Chage for images and speech
+	// TODO: Change for images and speech
 	all_files := []string{}
 	for k := range file_metadata {
-		all_files = append(all_files, k)
+		if strings.HasPrefix(k, "test_data/images") {
+			all_files = append(all_files, k)
+		}
 	}
 
-	new_status := &utils.JobStatus{JobId: job_id, BatchSize: batch_size, ModelType: model_type, ModelName: model_name}
-	log.Println(batch_size)
-	log.Println(model_type)
-	log.Println(model_name)
-
-	log.Println(new_status)
+	new_status := new(utils.JobStatus)
+	// {JobId: job_id, BatchSize: batch_size, ModelType: model_type, ModelName: model_name}
+	new_status.JobId = job_id
+	new_status.BatchSize = batch_size
+	new_status.ModelType = model_type
+	new_status.ModelName = model_name
 	membership_mutex.Lock()
 	mem_list, _ := GetMembershipList()
 	membership_mutex.Unlock()
@@ -983,15 +986,6 @@ func InitializeJobStatus(job_id int, model_name string, model_type string, batch
 	for _, process := range mem_list {
 		new_status.ProcessBatchProgress[process] = 0 // progress set to 0.
 	}
-	// Handle leftovers (total task per process alaways round down)
-	// if job_id == 0 {
-	// 	// new_status.TaskLock = &job1_queue_lock
-	// 	// log.Println("Job 1 lock: ", &job1_queue_lock)
-	// 	// new_status.AssignLock(&job1_queue_lock)
-	// } else {
-	// 	// new_status.TaskLock = &job2_queue_lock
-	// 	// new_status.AssignLock(&job2_queue_lock)
-	// }
 
 	new_status.TaskQueues = make([]string, len(all_files))
 	copy(new_status.TaskQueues, all_files)
@@ -1100,6 +1094,18 @@ func RoundRobin(process string) {
 
 }
 
+func ReInitializeStatus(job_id int) {
+	/* Recollect all test files. */
+	all_files := []string{}
+	for k := range file_metadata {
+		if strings.HasPrefix(k, "test_data/images") {
+			all_files = append(all_files, k)
+		}
+	}
+	job_status[job_id].TaskQueues = make([]string, len(all_files))
+	copy(job_status[job_id].TaskQueues, all_files)
+}
+
 // This thread acts as the scheduler that allocates resources
 func SchedulerServer() {
 	for {
@@ -1118,10 +1124,20 @@ func SchedulerServer() {
 					MembershipList: mem_list}
 
 			} else if new_job.Action == utils.INFERENCE {
-				// TODO: Check if new_job.JobID is initialized yet. If not, return to user warning!
+				// If the job exists previsouly, re-populate the tasks
+				if status, ok := job_status[new_job.JobID]; ok {
+					if len(status.TaskQueues) == 0 {
+						ReInitializeStatus(status.JobId)
+					}
+				} else {
+					// Job is not initialized!
+					fmt.Printf("Job %v is not initailzied! Plesae run start_job first!\n", new_job.JobID)
+					continue
+				}
+
 				log.Printf("Job %v starts inferencing!", new_job.JobID)
 				// inference job_id
-				if round_robin_running { // ! Race condition here. Round-robin-running maybe set to false when some process may still be running.
+				if round_robin_running { // ! Maybe a race condition here. Round-robin-running maybe set to false when some process may still be running.
 					running_jobs = append(running_jobs, new_job.JobID) // 2nd job
 				} else {
 
@@ -1131,6 +1147,7 @@ func SchedulerServer() {
 					members_host := GetHostsFromID(membership_list) // Get rid of timestamp
 					for _, process := range members_host {
 						// ScheduleWaitGroup.Add(1)
+						// Set the first job to be this jobID for all processes.
 						process_current_job[process] = new_job.JobID
 						// Allocate the test files for each process concurrently.
 						go RoundRobin(process)
