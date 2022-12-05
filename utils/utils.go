@@ -157,6 +157,17 @@ func (j *JobStatus) UpdateCount(size int) {
 	j.countlock.Unlock()
 }
 
+func (j *JobStatus) AvgQueryTime() float64 {
+	j.querytimelock.Lock()
+	total_time := float64(0)
+	for _, time := range j.QueryTime {
+		total_time += time
+	}
+	avg := total_time / float64(len(j.QueryTime))
+	j.querytimelock.Unlock()
+	return avg
+}
+
 func (j *JobStatus) AddQueryTime(time float64) {
 	j.querytimelock.Lock()
 	j.QueryTime = append(j.QueryTime, time)
@@ -252,6 +263,8 @@ func PrintJob(job *JobStatus) {
 	fmt.Printf("=\tQuery rate: %v/s\n", query_rate)
 	fmt.Println("=\tQuery count: ", job.QueryCount)
 	fmt.Println("=\tModel type: ", job.ModelType)
+	avg := job.AvgQueryTime()
+	fmt.Println("=\tAverage Inferencing Time for A Batch: ", avg)
 	fmt.Println("=\tModel name: ", job.ModelName)
 	fmt.Println("=\tRemaining files: ", len(job.TaskQueues))
 	fmt.Println("=\tWorkers for this job")
