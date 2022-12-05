@@ -112,13 +112,15 @@ type JobStatus struct {
 	QueryRate            float32             // Query rate
 	ModelType            string              // Current job's model type
 	ModelName            string              // Current job's model name
-	StartTime            time.Time           // Start time of INFERENCE (NOT INITIALIZATION)
+	StartTime            time.Time           // Start time of running INFERENCE (NOT INITIALIZATION)
+	QueryTime            []float64           // Query time for each batch.
 	ProcessBatchProgress map[string]int      // Maps process to its current batch number in the job (which batch in each N/10)
 	ProcessTestFiles     map[string][]string // Maps process to its assigned test files (of length each_process_total_task)
 	TaskQueues           []string
 	Workers              []string // List of existing worker processes
 	tasklock             sync.Mutex
 	countlock            sync.Mutex
+	querytimelock        sync.Mutex
 }
 
 func (j *JobStatus) AssignWorks(process string) ([]string, int, int) {
@@ -153,6 +155,23 @@ func (j *JobStatus) UpdateCount(size int) {
 	j.countlock.Lock()
 	j.QueryCount += size
 	j.countlock.Unlock()
+}
+
+func (j *JobStatus) AvgQueryTime() float64 {
+	j.querytimelock.Lock()
+	total_time := float64(0)
+	for _, time := range j.QueryTime {
+		total_time += time
+	}
+	avg := total_time / float64(len(j.QueryTime))
+	j.querytimelock.Unlock()
+	return avg
+}
+
+func (j *JobStatus) AddQueryTime(time float64) {
+	j.querytimelock.Lock()
+	j.QueryTime = append(j.QueryTime, time)
+	j.querytimelock.Unlock()
 }
 
 // Completes the work done.
@@ -244,15 +263,17 @@ func PrintJob(job *JobStatus) {
 	fmt.Printf("=\tQuery rate: %v/s\n", query_rate)
 	fmt.Println("=\tQuery count: ", job.QueryCount)
 	fmt.Println("=\tModel type: ", job.ModelType)
+	avg := job.AvgQueryTime()
+	fmt.Println("=\tAverage Inferencing Time for A Batch: ", avg)
 	fmt.Println("=\tModel name: ", job.ModelName)
 	fmt.Println("=\tRemaining files: ", len(job.TaskQueues))
 	fmt.Println("=\tWorkers for this job")
 	for i, worker := range job.Workers {
 		fmt.Printf("=\t\t%v: %v\n", i, worker)
 	}
-	fmt.Println("=\tVMs assigned to this job")
-	for process, file := range job.ProcessTestFiles {
-		fmt.Printf("=\t\t%v: %v\n", process, len(file))
-	}
+	// fmt.Println("=\tVMs assigned to this job")
+	// for process, file := range job.ProcessTestFiles {
+	// 	fmt.Printf("=\t\t%v: %v\n", process, len(file))
+	// }
 	fmt.Println(strings.Repeat("=", 80))
 }

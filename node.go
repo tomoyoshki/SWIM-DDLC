@@ -840,6 +840,11 @@ func NodeServer() {
 				_, deleted := MembershipListManager(Action{DELETE, response.Packet_PiggyBack[0]})
 				/* Inform the master (if it is) that a failed process found. */
 				if deleted {
+					/* Update job status for all the jobs. */
+					for _, status := range job_status {
+						status.Workers = membership_list
+						status.NumWorkers = len(membership_list)
+					}
 					failed_ip := strings.Split(response.Packet_PiggyBack[0], "_")[0]
 					log.Println("Failed ip is ", failed_ip)
 					if failed_ip == INTRODUCER_IP {
@@ -1055,14 +1060,16 @@ func RoundRobin(process string) {
 				file_meta := file_metadata[filename].Replicas
 				files_replicas[filename] = file_meta
 			}
-
+			start_time := time.Now()
 			// TODO: Call askToReplicate and pass in files_replicas
 			// log.Printf("Sending batch of size %v to process %v", len(files_replicas), process)
 			result := client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas, job_status)
+			end_time := time.Now()
+
 			if result != nil {
 				// The inference was successfully completed and stored.
 				job_status[current_job].UpdateCount(len(current_batch_files))
-				// job_status[current_job].QueryCount += len(current_batch_files)
+				job_status[current_job].AddQueryTime(float64(end_time.Sub(start_time)))
 			} else {
 				// An error occurred for this process. Need to put the current batch files back.
 				job_status[current_job].RestoreTasks(process, current_batch_files)
@@ -1078,9 +1085,6 @@ func RoundRobin(process string) {
 					}
 				}
 				if failed {
-					/* Update job status for this job */
-					job_status[current_job].Workers = mem_list
-					job_status[current_job].NumWorkers = len(mem_list)
 					log.Printf("Process %v failed! Exits round-robin for this process!", process)
 					return
 				}
@@ -1112,13 +1116,16 @@ func RoundRobin(process string) {
 					file_meta := file_metadata[filename].Replicas
 					files_replicas[filename] = file_meta
 				}
+				start_time := time.Now()
 				// Ask this process to fetch and inference the test data.
 				log.Printf("Scheduler send to process %v to process job %v on batch %v!", process, current_job, current_batch)
 				result := client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas, job_status)
+				end_time := time.Now()
 
 				if result != nil {
 					// The inference was successfully completed and stored.
 					job_status[current_job].UpdateCount(len(current_batch_files))
+					job_status[current_job].AddQueryTime(float64(end_time.Sub(start_time)))
 				} else {
 					// An error occurred for this process. Need to put the current batch files back.
 					job_status[current_job].RestoreTasks(process, current_batch_files)
@@ -1134,11 +1141,6 @@ func RoundRobin(process string) {
 						}
 					}
 					if failed {
-						/* Update job status for all the jobs. */
-						for _, status := range job_status {
-							status.Workers = mem_list
-							status.NumWorkers = len(mem_list)
-						}
 						membership_mutex.Unlock()
 						log.Printf("Process %v failed! Exits round-robin for this process!", process)
 						return
@@ -1584,6 +1586,11 @@ func Ping(target_id string) {
 		// Then update membership list and notify others
 		membership_mutex.Lock()
 		MembershipListManager(Action{DELETE, target_id})
+		/* Update job status for all the jobs. */
+		for _, status := range job_status {
+			status.Workers = membership_list
+			status.NumWorkers = len(membership_list)
+		}
 		failed_ip := strings.Split(target_id, "_")[0]
 		if failed_ip == INTRODUCER_IP {
 			/* Detects the introducer/master failed. */
