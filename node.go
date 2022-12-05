@@ -1026,6 +1026,10 @@ func InitializeJobStatus(job_id int, model_name string, model_type string, batch
 	log.Printf("Job id %v (model type: %v) initialized!", job_id, model_type)
 }
 
+func UpdateQueryRate() {
+
+}
+
 // Called on the per-process basis: round-robins style allocation of test data for inferencing.
 // It will keep on sending test-files batch-by-batch to jobs alternatively.
 func RoundRobin(process string) {

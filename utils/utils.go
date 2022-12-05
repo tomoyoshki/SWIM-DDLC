@@ -114,7 +114,6 @@ type JobStatus struct {
 	ModelName            string              // Current job's model name
 	StartTime            time.Time           // Start time of running INFERENCE (NOT INITIALIZATION)
 	QueryTime            []float64           // Query time for each batch.
-	LastTenSecondCount   int                 // The query count at 10 seconds before.
 	ProcessBatchProgress map[string]int      // Maps process to its current batch number in the job (which batch in each N/10)
 	ProcessTestFiles     map[string][]string // Maps process to its assigned test files (of length each_process_total_task)
 	TaskQueues           []string
