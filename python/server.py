@@ -124,8 +124,12 @@ def processData(job_id, batch_id, data_folder):
         with torch.no_grad():
             for i, (images, _) in enumerate(dataloader, 0):
                 if job_id == 0:
+                    if model1 is None:
+                        continue
                     res = model1(images)
                 else:
+                    if model2 is None:
+                        continue
                     res = model2(images)
                 output = torch.nn.functional.softmax(res, dim=1)[0]
                 top5_prob, top5_catid = torch.topk(output, 5)
@@ -199,7 +203,8 @@ class GoPythonServer(GoPythonServicer):
         result = processData(job_id, batch_id, inference_data_folder)
 
         if result is None:
-            raise Exception("processData did not return any inference result")
+            # raise Exception("processData did not return any inference result")
+            result = {}
 
         logging.info(f"Batchid: {batch_id}")
         result_directory = f"./python/result/{job_id}/{batch_id}/"
