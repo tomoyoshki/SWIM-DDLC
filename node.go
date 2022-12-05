@@ -479,15 +479,12 @@ func handleMLCommand(input string, input_list []string) {
 				log.Printf("Error Requesting for files: %v", err)
 				break
 			}
-			for i, fileserver_addr := range addresses {
+			for _, fileserver_addr := range addresses {
 				target_addr_port := fmt.Sprintf("%s:%v", fileserver_addr, MASTER_PORT_NUMBER)
 				log.Printf("Retrieving file %v from  node server %v", new_sdfsfilename, target_addr_port)
 				err := client.ClientDownload(target_addr_port, local_filename, new_sdfsfilename)
 				if err == nil {
 					break
-				}
-				if i == len(addresses)-1 {
-					utils.FormatPrint("Received no files")
 				}
 			}
 		}
@@ -1469,6 +1466,10 @@ func MasterServer() {
 						memlist_copy = RemoveFromList(memlist_copy, replica)
 					}
 					log.Print("Memlist before hashing: ", memlist_copy)
+					if len(memlist_copy) == 0 {
+						/* All members are replica already. */
+						continue
+					}
 					candidate := HashedReplicas(memlist_copy)[0]
 					// Find available process that holds the file
 					avaliables := RemoveFromList(replicas, failed_process)
