@@ -1212,6 +1212,7 @@ func RestoreJobStatus(job_id int) {
 // This thread acts as the scheduler that allocates resources
 func SchedulerServer() {
 	// If this is a newly elected leader after the previous one crashed, check existing jobs.
+	log.Println("For newly elected leader: ", MASTER_ADDRESS)
 	for job_id, status := range job_status {
 		if status.QueryCount < len(status.TaskQueues) {
 			RestoreJobStatus(job_id)
@@ -1233,6 +1234,8 @@ func SchedulerServer() {
 					go RoundRobin(process)
 				}
 			}
+		} else {
+			log.Println("Query coiunt is good")
 		}
 	}
 
