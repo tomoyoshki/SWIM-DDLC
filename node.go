@@ -1072,7 +1072,9 @@ func RoundRobin(process string) {
 			if result != nil {
 				// The inference was successfully completed and stored.
 				job_status[current_job].UpdateCount(len(current_batch_files))
-				job_status[current_job].AddQueryTime(float64(end_time.Sub(start_time).Seconds()))
+				diff := float64(end_time.Sub(start_time).Seconds())
+				log.Printf("On Process %v job %v: Query time for this batch is: %v\n", process, current_job, diff)
+				job_status[current_job].AddQueryTime(diff)
 			} else {
 				// An error occurred for this process. Need to put the current batch files back.
 				job_status[current_job].RestoreTasks(process, current_batch_files)
