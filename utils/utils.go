@@ -161,6 +161,10 @@ func (j *JobStatus) UpdateCount(size int) {
 
 func (j *JobStatus) GetQueryStatistics() (float64, float64, float64, float64, float64) {
 	j.querytimelock.Lock()
+	if len(j.QueryTime) == 0 {
+		j.querytimelock.Unlock()
+		return 0, 0, 0, 0, 0
+	}
 	data := make([]float64, len(j.QueryTime))
 	copy(data, j.QueryTime)
 	j.querytimelock.Unlock()
