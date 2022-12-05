@@ -257,7 +257,7 @@ func (c Client) SendJobInformation(ctx context.Context, batch_id int, job_id int
 }
 
 func (c Client) AskMemberToInitializeModels(ctx context.Context, job_id int, batch_size int, model_type string, model_name string) (string, error) {
-	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
+	ctx, cancel := context.WithDeadline(ctx, time.Now().Add(100*time.Second))
 	defer cancel()
 	res, err := c.client.AskMemberToInitializeModels(ctx, &fileproto.ModelTrainRequest{
 		JobId:     int32(job_id),
