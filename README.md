@@ -3,7 +3,7 @@
 - Ruipeng Han (ruipeng2@illinois.edu)
 - Tomoyoshi Kimura (tkimura4@illinois.edu)
 
-For this project, we implemented a variant of roubin-robin schduling algorithm to enable fair allocation of tasks for inferencing multiple machine larning models across distirbuted nodes.
+For this project, we implemented a variant of the round-robin scheduling algorithm to enable fair allocation of tasks for inferencing multiple machine learning models across distributed nodes.
 
 
 ## Project structure
