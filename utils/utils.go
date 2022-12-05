@@ -258,9 +258,9 @@ func PrintJob(job *JobStatus) {
 	for i, worker := range job.Workers {
 		fmt.Printf("=\t\t%v: %v\n", i, worker)
 	}
-	fmt.Println("=\tVMs assigned to this job")
-	for process, file := range job.ProcessTestFiles {
-		fmt.Printf("=\t\t%v: %v\n", process, len(file))
-	}
+	// fmt.Println("=\tVMs assigned to this job")
+	// for process, file := range job.ProcessTestFiles {
+	// 	fmt.Printf("=\t\t%v: %v\n", process, len(file))
+	// }
 	fmt.Println(strings.Repeat("=", 80))
 }
