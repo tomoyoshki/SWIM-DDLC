@@ -1060,14 +1060,16 @@ func RoundRobin(process string) {
 				file_meta := file_metadata[filename].Replicas
 				files_replicas[filename] = file_meta
 			}
-
+			start_time := time.Now()
 			// TODO: Call askToReplicate and pass in files_replicas
 			// log.Printf("Sending batch of size %v to process %v", len(files_replicas), process)
 			result := client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas, job_status)
+			end_time := time.Now()
+
 			if result != nil {
 				// The inference was successfully completed and stored.
 				job_status[current_job].UpdateCount(len(current_batch_files))
-				// job_status[current_job].QueryCount += len(current_batch_files)
+				job_status[current_job].AddQueryTime(float64(end_time.Sub(start_time)))
 			} else {
 				// An error occurred for this process. Need to put the current batch files back.
 				job_status[current_job].RestoreTasks(process, current_batch_files)
@@ -1114,13 +1116,16 @@ func RoundRobin(process string) {
 					file_meta := file_metadata[filename].Replicas
 					files_replicas[filename] = file_meta
 				}
+				start_time := time.Now()
 				// Ask this process to fetch and inference the test data.
 				log.Printf("Scheduler send to process %v to process job %v on batch %v!", process, current_job, current_batch)
 				result := client_model.SendInferenceInformation(process+":3333", current_job, current_batch, files_replicas, job_status)
+				end_time := time.Now()
 
 				if result != nil {
 					// The inference was successfully completed and stored.
 					job_status[current_job].UpdateCount(len(current_batch_files))
+					job_status[current_job].AddQueryTime(float64(end_time.Sub(start_time)))
 				} else {
 					// An error occurred for this process. Need to put the current batch files back.
 					job_status[current_job].RestoreTasks(process, current_batch_files)

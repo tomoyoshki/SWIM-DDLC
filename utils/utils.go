@@ -112,13 +112,16 @@ type JobStatus struct {
 	QueryRate            float32             // Query rate
 	ModelType            string              // Current job's model type
 	ModelName            string              // Current job's model name
-	StartTime            time.Time           // Start time of INFERENCE (NOT INITIALIZATION)
+	StartTime            time.Time           // Start time of running INFERENCE (NOT INITIALIZATION)
+	QueryTime            []float64           // Query time for each batch.
+	LastTenSecondCount   int                 // The query count at 10 seconds before.
 	ProcessBatchProgress map[string]int      // Maps process to its current batch number in the job (which batch in each N/10)
 	ProcessTestFiles     map[string][]string // Maps process to its assigned test files (of length each_process_total_task)
 	TaskQueues           []string
 	Workers              []string // List of existing worker processes
 	tasklock             sync.Mutex
 	countlock            sync.Mutex
+	querytimelock        sync.Mutex
 }
 
 func (j *JobStatus) AssignWorks(process string) ([]string, int, int) {
@@ -153,6 +156,12 @@ func (j *JobStatus) UpdateCount(size int) {
 	j.countlock.Lock()
 	j.QueryCount += size
 	j.countlock.Unlock()
+}
+
+func (j *JobStatus) AddQueryTime(time float64) {
+	j.querytimelock.Lock()
+	j.QueryTime = append(j.QueryTime, time)
+	j.querytimelock.Unlock()
 }
 
 // Completes the work done.
