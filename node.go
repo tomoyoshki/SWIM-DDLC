@@ -768,6 +768,9 @@ func InitializeMetadata(ProcessFiles map[string][]string) {
 				memlist_copy = RemoveFromList(memlist_copy, replica)
 			}
 			log.Print("Memlist before hashing: ", memlist_copy)
+			if len(memlist_copy) == 0 {
+				continue
+			}
 			candidate := HashedReplicas(memlist_copy)[0]
 			// Update filedata's replicas:
 			new_file_metadata := file_meta
