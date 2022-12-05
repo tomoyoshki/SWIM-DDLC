@@ -3,8 +3,10 @@ package utils
 import (
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -157,15 +159,30 @@ func (j *JobStatus) UpdateCount(size int) {
 	j.countlock.Unlock()
 }
 
-func (j *JobStatus) AvgQueryTime() float64 {
+func (j *JobStatus) GetQueryStatistics() (float64, float64, float64, float64, float64) {
 	j.querytimelock.Lock()
+	data := make([]float64, len(j.QueryTime))
+	copy(data, j.QueryTime)
+	j.querytimelock.Unlock()
+
 	total_time := float64(0)
-	for _, time := range j.QueryTime {
+	for _, time := range data {
 		total_time += time
 	}
-	avg := total_time / float64(len(j.QueryTime))
-	j.querytimelock.Unlock()
-	return avg
+	N := len(data)
+	mean := total_time / float64(N)
+	var sd float64
+	for j := 0; j < N; j++ {
+		sd += math.Pow(data[j]-mean, 2)
+	}
+	sd = math.Sqrt(sd / float64(N))
+
+	/* Find percentiles */
+	sort.Float64s(data)
+	twenty_fifth := data[N/4]
+	median := data[N/2]
+	seventy_fifth := data[3*N/4]
+	return mean, sd, twenty_fifth, median, seventy_fifth
 }
 
 func (j *JobStatus) AddQueryTime(time float64) {
@@ -263,8 +280,10 @@ func PrintJob(job *JobStatus) {
 	fmt.Printf("=\tQuery rate: %v/s\n", query_rate)
 	fmt.Println("=\tQuery count: ", job.QueryCount)
 	fmt.Println("=\tModel type: ", job.ModelType)
-	avg := job.AvgQueryTime()
+	avg, sd, first, median, second := job.GetQueryStatistics()
 	fmt.Println("=\tAverage Inferencing Time for A Batch: ", avg)
+	fmt.Println("=\tStandard Deviation for Inferencing Time ", sd)
+	fmt.Printf("=\tPercentiles: 25-th: %v; 50-th: %v; 75-th: %v ", first, median, second)
 	fmt.Println("=\tModel name: ", job.ModelName)
 	fmt.Println("=\tRemaining files: ", len(job.TaskQueues))
 	fmt.Println("=\tWorkers for this job")
