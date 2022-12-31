@@ -1,4 +1,4 @@
-# CS 425 MP 4 Distributed ML Inferencing
+SWIM based Distributed Deep Learning Cluster.
 
 - Ruipeng Han (ruipeng2@illinois.edu)
 - Tomoyoshi Kimura (tkimura4@illinois.edu)
